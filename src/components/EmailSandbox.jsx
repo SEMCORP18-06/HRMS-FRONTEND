@@ -87,7 +87,7 @@ export default function EmailSandbox() {
     ]);
 
     try {
-      const response = await fetch('/api/sandbox/test-email', {
+      const response = await fetch('https://hrms-backend-gamma.vercel.app/api/sandbox/test-email', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

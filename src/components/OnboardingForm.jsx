@@ -44,7 +44,7 @@ export default function OnboardingForm({ token, onComplete }) {
   const [bachelorsCgpa, setBachelorsCgpa] = useState('');
 
   useEffect(() => {
-    fetch(`/api/invite/verify?token=${encodeURIComponent(token)}`)
+    fetch(`https://hrms-backend-gamma.vercel.app/api/invite/verify?token=${encodeURIComponent(token)}`)
       .then(res => {
         if (!res.ok) throw new Error('Invalid or expired invitation link.');
         return res.json();
@@ -114,7 +114,7 @@ export default function OnboardingForm({ token, onComplete }) {
       if (passbook)          fd.append('passbook', passbook);
       if (experienceLetter)  fd.append('experience', experienceLetter);
 
-      const res = await fetch('/api/invite/submit', { method: 'POST', body: fd });
+      const res = await fetch('https://hrms-backend-gamma.vercel.app/api/invite/submit', { method: 'POST', body: fd });
 
       if (!res.ok) {
         const data = await res.json();

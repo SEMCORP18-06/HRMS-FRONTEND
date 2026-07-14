@@ -57,7 +57,7 @@ export default function EmployeeDirectory() {
 
     try {
       const token = localStorage.getItem('hr_token');
-      const res = await fetch('/api/invite/send', {
+      const res = await fetch('https://hrms-backend-gamma.vercel.app/api/invite/send', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

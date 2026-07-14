@@ -64,7 +64,7 @@ export default function MyProfile({ user, onUserUpdate }) {
 
     try {
       const token = localStorage.getItem('hr_token');
-      const res = await fetch('/api/employees/me', {
+      const res = await fetch('https://hrms-backend-gamma.vercel.app/api/employees/me', {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
