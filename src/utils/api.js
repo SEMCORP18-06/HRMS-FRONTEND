@@ -128,7 +128,8 @@ export const api = {
       body: { text, author }
     }),
     trigger: () => request('/daily-pulse/trigger', { method: 'POST' }),
-    schedule: () => request('/daily-pulse/schedule')
+    schedule: () => request('/daily-pulse/schedule'),
+    today: () => request('/daily-pulse/today')
   },
   surpriseOps: {
     coupons: () => request('/surprise-ops/coupons'),

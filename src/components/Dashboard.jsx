@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { api } from '../utils/api';
 import { 
   Gift, IndianRupee, Quote, Sparkles, BookOpen, Calendar, 
   Cpu, FileText, UserMinus, MessageSquare, Search, Clock, LogOut,
@@ -38,6 +39,7 @@ export default function Dashboard({ user, activeTenant, onLogout, onSelectModule
     // Default to light mode unless user has explicitly set dark
     return localStorage.getItem('theme') !== 'dark';
   });
+  const [dailyQuote, setDailyQuote] = useState(null);
 
   useEffect(() => {
     if (isLightMode) {
@@ -48,6 +50,12 @@ export default function Dashboard({ user, activeTenant, onLogout, onSelectModule
       localStorage.setItem('theme', 'dark');
     }
   }, [isLightMode]);
+
+  useEffect(() => {
+    api.dailyPulse.today()
+      .then(data => setDailyQuote(data))
+      .catch(err => console.error("Failed to fetch today's quote:", err));
+  }, []);
 
   const toggleTheme = () => {
     setIsLightMode(!isLightMode);
@@ -95,9 +103,30 @@ export default function Dashboard({ user, activeTenant, onLogout, onSelectModule
 
       {/* Main Grid Content */}
       <main className="dashboard-main">
-        <div className="welcome-banner">
-          <h2>Welcome back, {user.name.split(' ')[0]} 👋</h2>
-          <p>Select an operation tile below to access HR modules and automations.</p>
+        <div className="welcome-banner" style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+          <div>
+            <h2>Welcome back, {user.name.split(' ')[0]} 👋</h2>
+            <p>Select an operation tile below to access HR modules and automations.</p>
+          </div>
+          {dailyQuote && (
+            <div style={{ 
+              marginTop: '15px', 
+              background: 'rgba(255, 255, 255, 0.05)', 
+              border: '1px solid var(--border-glass)', 
+              borderRadius: '12px', 
+              padding: '15px 20px', 
+              position: 'relative',
+              overflow: 'hidden'
+            }}>
+              <Quote size={40} style={{ position: 'absolute', right: '15px', bottom: '-10px', color: 'rgba(255,255,255,0.03)', transform: 'rotate(180deg)' }} />
+              <p style={{ fontStyle: 'italic', margin: 0, fontSize: '15px', color: 'var(--text-primary)', lineHeight: '1.5' }}>
+                "{dailyQuote.quote}"
+              </p>
+              <p style={{ margin: '8px 0 0 0', fontSize: '13px', color: '#3b82f6', fontWeight: 'bold', textAlign: 'right' }}>
+                — {dailyQuote.author}
+              </p>
+            </div>
+          )}
         </div>
 
         <div className="tiles-grid">
