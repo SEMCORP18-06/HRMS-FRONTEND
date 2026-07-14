@@ -62,7 +62,7 @@ export default function DocumentVault({ user }) {
 
   const fetchEmployees = async () => {
     try {
-      const data = await api.employees.list(true); // Fetch active roster
+      const data = await api.employees.list(false); // Fetch all roster (active and pending)
       setEmployees(data);
     } catch (err) {
       console.error("Failed to fetch employees:", err);
@@ -1055,8 +1055,8 @@ function DocumentPreviewViewer({ url, title }) {
     setError(null);
     setHtmlContent(null);
 
-    const isDocx = url.toLowerCase().endsWith('.docx');
-    const isXlsx = url.toLowerCase().endsWith('.xlsx');
+    const isDocx = url.toLowerCase().endsWith('.docx') || url.includes('wordprocessingml.document');
+    const isXlsx = url.toLowerCase().endsWith('.xlsx') || url.includes('spreadsheetml.sheet');
 
     if (!isDocx && !isXlsx) {
       setLoading(false);
@@ -1155,10 +1155,11 @@ function DocumentPreviewViewer({ url, title }) {
                   url.toLowerCase().endsWith('.jpeg') || 
                   url.toLowerCase().endsWith('.gif') || 
                   url.toLowerCase().endsWith('.webp') ||
-                  url.toLowerCase().endsWith('.svg');
+                  url.toLowerCase().endsWith('.svg') ||
+                  url.startsWith('data:image/');
 
-  const isDocx = url.toLowerCase().endsWith('.docx');
-  const isXlsx = url.toLowerCase().endsWith('.xlsx');
+  const isDocx = url.toLowerCase().endsWith('.docx') || url.includes('wordprocessingml.document');
+  const isXlsx = url.toLowerCase().endsWith('.xlsx') || url.includes('spreadsheetml.sheet');
 
   if (htmlContent) {
     return (
