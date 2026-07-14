@@ -12,6 +12,7 @@ export default function Auth({ onLoginSuccess }) {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [role, setRole] = useState('Admin (HR)');
+  const [loginRole, setLoginRole] = useState('Admin (HR)');
 
   useEffect(() => {
     api.auth.signupStatus()
@@ -49,7 +50,7 @@ export default function Auth({ onLoginSuccess }) {
     setSuccess('');
     
     try {
-      const response = await api.auth.login(email, password);
+      const response = await api.auth.login(email, password, loginRole);
       localStorage.setItem('hr_token', response.access_token);
       onLoginSuccess(response.user, response.tenant);
     } catch (err) {
@@ -171,7 +172,30 @@ export default function Auth({ onLoginSuccess }) {
               </div>
             </div>
             
-            <button type="submit" className="sso-btn" disabled={loading} style={{ fontWeight: 'bold' }}>
+            <div className="form-group">
+              <label style={{ fontWeight: 'bold' }}>Access Portal</label>
+              <select 
+                value={loginRole} 
+                onChange={(e) => setLoginRole(e.target.value)}
+                disabled={loading}
+                style={{ 
+                  fontWeight: 'bold', 
+                  width: '100%', 
+                  padding: '12px', 
+                  borderRadius: '10px', 
+                  border: '1px solid var(--border-color)', 
+                  background: 'var(--bg-card)', 
+                  color: 'var(--text-main)',
+                  outline: 'none',
+                  cursor: 'pointer'
+                }}
+              >
+                <option value="Admin (HR)">HR Admin Portal</option>
+                <option value="Employee">Employee Portal</option>
+              </select>
+            </div>
+            
+            <button type="submit" className="sso-btn" disabled={loading} style={{ fontWeight: 'bold', marginTop: '10px' }}>
               {loading ? 'Signing In...' : 'Sign In'}
             </button>
           </form>

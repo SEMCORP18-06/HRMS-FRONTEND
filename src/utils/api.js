@@ -34,9 +34,9 @@ export async function request(endpoint, options = {}) {
 
 export const api = {
   auth: {
-    login: (email, password) => request('/auth/login', {
+    login: (email, password, role) => request('/auth/login', {
       method: 'POST',
-      body: { email, password }
+      body: { email, password, role }
     }),
     signup: (signupData) => request('/auth/signup', {
       method: 'POST',
