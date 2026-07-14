@@ -173,6 +173,24 @@ export default function PayrollHub() {
     setCalcResult(runCTCFormula(gross));
   };
 
+  useEffect(() => {
+    const amt = parseFloat(calcAmount);
+    if (!isNaN(amt) && amt > 0) {
+      let gross = amt;
+      if (calcInputType === 'net') {
+        let low = amt, high = amt * 3, iterations = 0;
+        while (high - low > 0.001 && iterations < 100) {
+          const mid = (low + high) / 2;
+          const res = runCTCFormula(mid);
+          if (res.netTakeHome < amt) low = mid; else high = mid;
+          iterations++;
+        }
+        gross = (low + high) / 2;
+      }
+      setCalcResult(runCTCFormula(gross));
+    }
+  }, [ptType, calcMonth, calcInputType]);
+
   // ─── Export Handler ───────────────────────────────────────────────────
   const handleExport = async (fmt) => {
     if (!calcResult) {
