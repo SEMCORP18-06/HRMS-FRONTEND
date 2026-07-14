@@ -879,7 +879,7 @@ body.light-mode .role-switcher-bg {
   background: transparent;
   border: none;
   color: var(--text-secondary);
-  padding: 6px 14px;
+  padding: 10px 20px;
   font-size: 13px;
   font-weight: 600;
   cursor: pointer;
