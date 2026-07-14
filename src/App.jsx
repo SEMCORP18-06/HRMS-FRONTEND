@@ -164,23 +164,28 @@ export default function App() {
     return <Auth onLoginSuccess={handleLoginSuccess} />;
   }
 
+  const effectiveUser = user ? { 
+    ...user, 
+    role: currentRole === 'Admin' ? 'Admin (HR)' : 'Employee' 
+  } : null;
+
   if (activeModule) {
     const renderModule = () => {
       switch (activeModule) {
-        case 'myInfo': return <MyProfile user={user} onUserUpdate={handleUserUpdate} />;
-        case 'attendance': return <Attendance activeTenant={activeTenant} user={user} />;
+        case 'myInfo': return <MyProfile user={effectiveUser} onUserUpdate={handleUserUpdate} />;
+        case 'attendance': return <Attendance activeTenant={activeTenant} user={effectiveUser} />;
         case 'directory': return <EmployeeDirectory activeTenant={activeTenant} />;
         case 'celebrations': return <Celebrations activeTenant={activeTenant} />;
         case 'payroll': return <PayrollHub activeTenant={activeTenant} />;
         case 'dailyPulse': return <DailyPulse activeTenant={activeTenant} />;
         case 'surpriseOps': return <SurpriseOps activeTenant={activeTenant} />;
-        case 'lmsClub': return <LMSClub activeTenant={activeTenant} user={user} />;
-        case 'eventPlanner': return <EventPlanner activeTenant={activeTenant} user={user} />;
-        case 'assetManager': return <AssetManager activeTenant={activeTenant} user={user} />;
-        case 'docVault': return <DocumentVault activeTenant={activeTenant} user={user} />;
-        case 'offboarding': return <Offboarding activeTenant={activeTenant} user={user} />;
+        case 'lmsClub': return <LMSClub activeTenant={activeTenant} user={effectiveUser} />;
+        case 'eventPlanner': return <EventPlanner activeTenant={activeTenant} user={effectiveUser} />;
+        case 'assetManager': return <AssetManager activeTenant={activeTenant} user={effectiveUser} />;
+        case 'docVault': return <DocumentVault activeTenant={activeTenant} user={effectiveUser} />;
+        case 'offboarding': return <Offboarding activeTenant={activeTenant} user={effectiveUser} />;
         case 'surveys': return <PulseSurveys activeTenant={activeTenant} />;
-        case 'policies': return <PolicySearch activeTenant={activeTenant} user={user} />;
+        case 'policies': return <PolicySearch activeTenant={activeTenant} user={effectiveUser} />;
         default: return <div>Module not implemented</div>;
       }
     };
@@ -205,8 +210,8 @@ export default function App() {
                   ← Back to Grid
                 </button>
                 <div className="user-info">
-                  <span className="user-name">{user.name}</span>
-                  <span className="user-role">{user.role}</span>
+                  <span className="user-name">{effectiveUser.name}</span>
+                  <span className="user-role">{effectiveUser.role}</span>
                 </div>
               </div>
             </div>
@@ -223,7 +228,7 @@ export default function App() {
   return (
     <>
       <Dashboard 
-        user={user} 
+        user={effectiveUser} 
         activeTenant={activeTenant} 
         onLogout={handleLogout} 
         onSelectModule={setActiveModule} 
