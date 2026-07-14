@@ -15,6 +15,13 @@ export default function Auth({ onLoginSuccess }) {
   const [loginRole, setLoginRole] = useState('Admin (HR)');
 
   useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('signup') === 'true') {
+      setIsSignUp(true);
+    }
+  }, []);
+
+  useEffect(() => {
     api.auth.signupStatus()
       .then(res => setAdminRegistered(res.admin_registered))
       .catch(err => console.error("Signup status query failed:", err));
@@ -50,7 +57,7 @@ export default function Auth({ onLoginSuccess }) {
     setSuccess('');
     
     try {
-      const response = await api.auth.login(email, password, loginRole);
+      const response = await api.auth.login(email, password, undefined);
       localStorage.setItem('hr_token', response.access_token);
       onLoginSuccess(response.user, response.tenant);
     } catch (err) {
@@ -171,30 +178,6 @@ export default function Auth({ onLoginSuccess }) {
                 <KeyRound size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
               </div>
             </div>
-            
-            <div className="form-group">
-              <label style={{ fontWeight: 'bold' }}>Access Portal</label>
-              <select 
-                value={loginRole} 
-                onChange={(e) => setLoginRole(e.target.value)}
-                disabled={loading}
-                style={{ 
-                  fontWeight: 'bold', 
-                  width: '100%', 
-                  padding: '12px', 
-                  borderRadius: '10px', 
-                  border: '1px solid var(--border-color)', 
-                  background: 'var(--bg-card)', 
-                  color: 'var(--text-main)',
-                  outline: 'none',
-                  cursor: 'pointer'
-                }}
-              >
-                <option value="Admin (HR)">HR Admin Portal</option>
-                <option value="Employee">Employee Portal</option>
-              </select>
-            </div>
-            
             <button type="submit" className="sso-btn" disabled={loading} style={{ fontWeight: 'bold', marginTop: '10px' }}>
               {loading ? 'Signing In...' : 'Sign In'}
             </button>
