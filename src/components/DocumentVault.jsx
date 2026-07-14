@@ -1048,9 +1048,50 @@ function DocumentPreviewViewer({ url, title }) {
   const [error, setError] = useState(null);
   const [forceIframe, setForceIframe] = useState(false);
   const [htmlContent, setHtmlContent] = useState(null);
+  const [previewUrl, setPreviewUrl] = useState(url);
+
+  // Helper to convert base64 data URIs to Blob URLs to bypass iframe restrictions in Chrome
+  const convertDataURIToBlobURL = (dataURI) => {
+    if (!dataURI || !dataURI.startsWith('data:')) return dataURI;
+    try {
+      const parts = dataURI.split(',');
+      const meta = parts[0];
+      const base64Data = parts[1];
+      const mime = meta.split(':')[1].split(';')[0];
+      
+      const binary = atob(base64Data);
+      const len = binary.length;
+      const buffer = new ArrayBuffer(len);
+      const view = new Uint8Array(buffer);
+      for (let i = 0; i < len; i++) {
+        view[i] = binary.charCodeAt(i);
+      }
+      const blob = new Blob([view], { type: mime });
+      return URL.createObjectURL(blob);
+    } catch (e) {
+      console.error("Failed to convert data URI to blob URL:", e);
+      return dataURI;
+    }
+  };
 
   useEffect(() => {
-    if (!url || forceIframe) return;
+    let bUrl = null;
+    if (url && url.startsWith('data:')) {
+      bUrl = convertDataURIToBlobURL(url);
+      setPreviewUrl(bUrl);
+    } else {
+      setPreviewUrl(url);
+    }
+
+    return () => {
+      if (bUrl && bUrl.startsWith('blob:')) {
+        URL.revokeObjectURL(bUrl);
+      }
+    };
+  }, [url]);
+
+  useEffect(() => {
+    if (!previewUrl || forceIframe) return;
     setLoading(true);
     setError(null);
     setHtmlContent(null);
@@ -1063,7 +1104,7 @@ function DocumentPreviewViewer({ url, title }) {
       return;
     }
 
-    fetch(url)
+    fetch(previewUrl)
       .then(res => {
         if (!res.ok) throw new Error("Failed to load file contents from server.");
         return res.arrayBuffer();
@@ -1148,7 +1189,7 @@ function DocumentPreviewViewer({ url, title }) {
         setForceIframe(true);
         setLoading(false);
       });
-  }, [url, forceIframe]);
+  }, [previewUrl, forceIframe]);
 
   const isImage = url.toLowerCase().endsWith('.png') || 
                   url.toLowerCase().endsWith('.jpg') || 
@@ -1174,7 +1215,7 @@ function DocumentPreviewViewer({ url, title }) {
   if (forceIframe) {
     return (
       <iframe 
-        src={url} 
+        src={previewUrl} 
         style={{ width: '100%', height: '65vh', border: 'none', borderRadius: '12px', background: 'white' }} 
         title={title} 
       />
@@ -1184,7 +1225,7 @@ function DocumentPreviewViewer({ url, title }) {
   if (isImage) {
     return (
       <img 
-        src={url} 
+        src={previewUrl} 
         style={{ maxWidth: '100%', maxHeight: '65vh', objectFit: 'contain', borderRadius: '12px', border: '1px solid var(--border-glass)' }} 
         alt={title} 
       />
@@ -1205,7 +1246,7 @@ function DocumentPreviewViewer({ url, title }) {
             <p style={{ fontSize: '14px', fontWeight: 'bold', margin: '0 0 8px 0' }}>Inline Rendering Issue</p>
             <p style={{ fontSize: '12px', color: 'var(--text-secondary)', margin: '0 0 15px 0', lineHeight: '1.5' }}>{error}</p>
             <div style={{ display: 'flex', gap: '10px', justifyContent: 'center' }}>
-              <a href={url} download className="btn-primary" style={{ padding: '8px 16px', fontSize: '12px', textDecoration: 'none', background: 'var(--brand-gradient)' }}>
+              <a href={previewUrl} download className="btn-primary" style={{ padding: '8px 16px', fontSize: '12px', textDecoration: 'none', background: 'var(--brand-gradient)' }}>
                 Download File
               </a>
               <button 
@@ -1228,7 +1269,7 @@ function DocumentPreviewViewer({ url, title }) {
 
   return (
     <iframe 
-      src={url} 
+      src={previewUrl} 
       style={{ width: '100%', height: '65vh', border: 'none', borderRadius: '12px', background: 'white' }} 
       title={title} 
     />
