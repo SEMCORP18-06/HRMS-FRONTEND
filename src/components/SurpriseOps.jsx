@@ -536,7 +536,7 @@ export default function SurpriseOps() {
 
                           {isExpanded && (
                             <div style={{ padding: '8px 10px 4px 25px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                              {deptEmps.map(emp => (
+                              {deptEmps.filter(emp => emp.id !== selectedEmpIdAppr).map(emp => (
                                 <label key={emp.id} style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', fontSize: '11px', cursor: 'pointer', color: 'var(--text-secondary)' }}>
                                   <input 
                                     type="checkbox" 
