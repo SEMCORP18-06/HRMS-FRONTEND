@@ -25,6 +25,8 @@ export default function PayrollHub() {
   const [calcInputType, setCalcInputType] = useState('gross');
   const [calcAmount, setCalcAmount] = useState('');
   const [calcResult, setCalcResult] = useState(null);
+  const [ptType, setPtType] = useState('standard');
+  const [calcMonth, setCalcMonth] = useState('April');
 
   // Export state
   const [exportLoading, setExportLoading] = useState({ pdf: false, excel: false, word: false });
@@ -125,7 +127,16 @@ export default function PayrollHub() {
     const pfBase = Math.min(basic, 15000);
     const employeePF = pfBase * 0.12;
     const employeeESIC = grossVal <= 21000 ? (grossVal * 0.0075) : 0;
-    const pt = 200;
+    let pt = 200;
+    let pt_yearly = 2400;
+    if (ptType === 'yearly2500_feb') {
+      pt_yearly = 2500;
+      if (calcMonth === 'February' || calcMonth === 'March') {
+        pt = 300;
+      } else {
+        pt = 200;
+      }
+    }
     const totalDeductions = employeePF + employeeESIC + pt;
     const netTakeHome = grossVal - totalDeductions;
     const employerPF = employeePF;
@@ -137,7 +148,7 @@ export default function PayrollHub() {
     return {
       basic, hra, conveyance, education, medical, special,
       gross: grossABCDEF, bonus, finalGross: grossVal,
-      employeePF, employeeESIC, pt, totalDeductions, netTakeHome,
+      employeePF, employeeESIC, pt, pt_yearly, totalDeductions, netTakeHome,
       employerPF, employerESIC, gratuity, others, totalCTC
     };
   };
@@ -192,6 +203,7 @@ export default function PayrollHub() {
       employeePF: calcResult.employeePF,
       employeeESIC: calcResult.employeeESIC,
       pt: calcResult.pt,
+      pt_yearly: calcResult.pt_yearly,
       totalDeductions: calcResult.totalDeductions,
       netTakeHome: calcResult.netTakeHome,
       employerPF: calcResult.employerPF,
@@ -252,9 +264,9 @@ export default function PayrollHub() {
 | **Employee Deductions** | | |
 | - PF (12%, Max base 15k) | ${f(calcResult.employeePF)} | ${f(calcResult.employeePF * 12)} |
 | - ESIC (0.75%) | ${f(calcResult.employeeESIC)} | ${f(calcResult.employeeESIC * 12)} |
-| - Professional Tax | ${f(calcResult.pt)} | ${f(calcResult.pt * 12)} |
-| **Total Deductions** | **${f(calcResult.totalDeductions)}** | **${f(calcResult.totalDeductions * 12)}** |
-| **Net Take Home Salary** | **${f(calcResult.netTakeHome)}** | **${f(calcResult.netTakeHome * 12)}** |
+| - Professional Tax | ${f(calcResult.pt)} | ${f(calcResult.pt_yearly)} |
+| **Total Deductions** | **${f(calcResult.totalDeductions)}** | **${f((calcResult.employeePF * 12) + (calcResult.employeeESIC * 12) + calcResult.pt_yearly)}** |
+| **Net Take Home Salary** | **${f(calcResult.netTakeHome)}** | **${f((calcResult.finalGross * 12) - ((calcResult.employeePF * 12) + (calcResult.employeeESIC * 12) + calcResult.pt_yearly))}** |
 | **Employer Contributions** | | |
 | - PF (Employer) | ${f(calcResult.employerPF)} | ${f(calcResult.employerPF * 12)} |
 | - ESIC (3.25%) | ${f(calcResult.employerESIC)} | ${f(calcResult.employerESIC * 12)} |
@@ -542,7 +554,7 @@ export default function PayrollHub() {
                   <select
                     value={calcInputType}
                     onChange={e => setCalcInputType(e.target.value)}
-                    style={{ ...selectStyle, minWidth: '230px', width: 'auto' }}
+                    style={{ ...selectStyle, minWidth: '200px', width: 'auto' }}
                   >
                     <option value="gross">Target Monthly Gross Salary</option>
                     <option value="net">Target Monthly Net Take Home</option>
@@ -564,11 +576,51 @@ export default function PayrollHub() {
                     color: 'var(--text-primary)',
                     padding: '9px 12px',
                     borderRadius: '10px',
-                    width: '200px',
+                    width: '180px',
                     fontSize: '13px',
                     outline: 'none',
                   }}
                 />
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                <label style={labelStyle}>Professional Tax Option</label>
+                <div style={{ position: 'relative' }}>
+                  <select
+                    value={ptType}
+                    onChange={e => setPtType(e.target.value)}
+                    style={{ ...selectStyle, minWidth: '200px', width: 'auto' }}
+                  >
+                    <option value="standard">Standard (₹200 / Month)</option>
+                    <option value="yearly2500_feb">₹2500 Yearly (Feb/March ₹300, others ₹200)</option>
+                  </select>
+                  <ChevronDown size={14} style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', color: '#64748b', pointerEvents: 'none' }} />
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                <label style={labelStyle}>Calculation Month</label>
+                <div style={{ position: 'relative' }}>
+                  <select
+                    value={calcMonth}
+                    onChange={e => setCalcMonth(e.target.value)}
+                    style={{ ...selectStyle, minWidth: '150px', width: 'auto' }}
+                  >
+                    <option value="April">April</option>
+                    <option value="May">May</option>
+                    <option value="June">June</option>
+                    <option value="July">July</option>
+                    <option value="August">August</option>
+                    <option value="September">September</option>
+                    <option value="October">October</option>
+                    <option value="November">November</option>
+                    <option value="December">December</option>
+                    <option value="January">January</option>
+                    <option value="February">February</option>
+                    <option value="March">March</option>
+                  </select>
+                  <ChevronDown size={14} style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', color: '#64748b', pointerEvents: 'none' }} />
+                </div>
               </div>
 
               <button
@@ -703,17 +755,17 @@ export default function PayrollHub() {
                           <tr>
                             <td style={{ paddingLeft: '20px' }}>- Professional Tax (PT)</td>
                             <td style={{ textAlign: 'right' }}>₹{f(calcResult.pt)}</td>
-                            <td style={{ textAlign: 'right' }}>₹{f(calcResult.pt * 12)}</td>
+                            <td style={{ textAlign: 'right' }}>₹{f(calcResult.pt_yearly)}</td>
                           </tr>
                           <tr style={{ background: 'rgba(255,255,255,0.02)' }}>
                             <td><strong>Total Deductions</strong></td>
                             <td style={{ textAlign: 'right' }}>₹{f(calcResult.totalDeductions)}</td>
-                            <td style={{ textAlign: 'right' }}>₹{f(calcResult.totalDeductions * 12)}</td>
+                            <td style={{ textAlign: 'right' }}>₹{f((calcResult.employeePF * 12) + (calcResult.employeeESIC * 12) + calcResult.pt_yearly)}</td>
                           </tr>
                           <tr>
                             <td><strong>Net Take Home Salary</strong></td>
                             <td style={{ textAlign: 'right', fontWeight: 'bold', color: '#cca43b' }}>₹{f(calcResult.netTakeHome)}</td>
-                            <td style={{ textAlign: 'right', fontWeight: 'bold', color: '#cca43b' }}>₹{f(calcResult.netTakeHome * 12)}</td>
+                            <td style={{ textAlign: 'right', fontWeight: 'bold', color: '#cca43b' }}>₹{f((calcResult.finalGross * 12) - ((calcResult.employeePF * 12) + (calcResult.employeeESIC * 12) + calcResult.pt_yearly))}</td>
                           </tr>
 
                           {/* Employer Contributions heading */}
