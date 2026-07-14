@@ -380,7 +380,7 @@ export default function SurpriseOps() {
                 >
                   <option value="">-- Select to auto-populate --</option>
                   {employees.map(e => (
-                    <option key={e.id} value={e.id}>{e.name} ({e.email} | {e.personal_email || 'No Personal Email'})</option>
+                    <option key={e.id} value={e.id}>{e.name} ({e.email})</option>
                   ))}
                 </select>
               </div>
@@ -547,7 +547,7 @@ export default function SurpriseOps() {
                                   <div>
                                     <div style={{ fontWeight: 'bold', color: 'var(--text-primary)' }}>{emp.name}</div>
                                     <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>
-                                      📧 {emp.email} | ✉️ {emp.personal_email || 'No Personal Email'}
+                                      📧 {emp.email}
                                     </div>
                                   </div>
                                 </label>
