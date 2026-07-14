@@ -4,9 +4,10 @@ import { Plus, BookOpen, Tag, FileText, CheckCircle } from 'lucide-react';
 
 export default function PolicySearch({ user }) {
   const [policies, setPolicies] = useState([]);
-  const [category, setCategory] = useState('WFH');
+  const [category, setCategory] = useState('');
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
+  const [policyFile, setPolicyFile] = useState(null);
   const [status, setStatus] = useState('');
   const [error, setError] = useState('');
   const [selectedPolicyId, setSelectedPolicyId] = useState(null);
@@ -33,11 +34,24 @@ export default function PolicySearch({ user }) {
 
   const handleCreatePolicy = async (e) => {
     e.preventDefault();
-    if (!title || !content) return;
+    if (!title || !content || !category) return;
     try {
-      const newPolicy = await api.policies.create({ category, title, content });
+      const formData = new FormData();
+      formData.append('category', category.trim());
+      formData.append('title', title.trim());
+      formData.append('content', content.trim());
+      if (policyFile) {
+        formData.append('file', policyFile);
+      }
+
+      const newPolicy = await api.policies.create(formData);
       setTitle('');
       setContent('');
+      setCategory('');
+      setPolicyFile(null);
+      const fileInput = document.getElementById('policy-file-input');
+      if (fileInput) fileInput.value = '';
+
       setStatus('Policy added to Knowledge Base successfully!');
       setTimeout(() => setStatus(''), 3000);
       fetchPolicies();
@@ -57,7 +71,7 @@ export default function PolicySearch({ user }) {
 
   const selectedPolicy = policies.find(p => p.id === selectedPolicyId);
 
-  const categories = ['All', 'WFH', 'Leaves', 'Travel', 'Benefits'];
+  const categories = ['All', ...new Set(policies.map(p => p.category).filter(Boolean))];
 
   return (
     <div className="module-container" style={{ width: '100%', padding: '20px 30px' }}>
@@ -107,17 +121,15 @@ export default function PolicySearch({ user }) {
             
             <form onSubmit={handleCreatePolicy} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
               <div className="form-group">
-                <label style={{ fontSize: '13px', fontWeight: '750', color: 'var(--text-secondary)', marginBottom: '6px', display: 'block' }}>Category</label>
-                <select 
+                <label style={{ fontSize: '13px', fontWeight: '750', color: 'var(--text-secondary)', marginBottom: '6px', display: 'block' }}>Category (Custom Made)</label>
+                <input 
+                  type="text" 
+                  placeholder="e.g. WFH, Safety, Leaves, Code of Conduct" 
                   value={category} 
                   onChange={(e) => setCategory(e.target.value)}
-                  style={{ width: '100%', padding: '12px', background: 'var(--bg-input)', color: 'var(--text-primary)', border: '1px solid var(--border-glass)', borderRadius: '10px' }}
-                >
-                  <option value="WFH">WFH</option>
-                  <option value="Leaves">Leaves</option>
-                  <option value="Travel">Travel</option>
-                  <option value="Benefits">Benefits</option>
-                </select>
+                  required
+                  style={{ width: '100%', padding: '12px' }}
+                />
               </div>
               
               <div className="form-group">
@@ -129,6 +141,17 @@ export default function PolicySearch({ user }) {
                   onChange={(e) => setTitle(e.target.value)} 
                   required
                   style={{ width: '100%', padding: '12px' }}
+                />
+              </div>
+
+              <div className="form-group">
+                <label style={{ fontSize: '13px', fontWeight: '750', color: 'var(--text-secondary)', marginBottom: '6px', display: 'block' }}>Policy Document File (Optional)</label>
+                <input 
+                  id="policy-file-input"
+                  type="file" 
+                  accept=".pdf, .docx, .doc, .png, .jpg, .jpeg"
+                  onChange={(e) => setPolicyFile(e.target.files[0])}
+                  style={{ fontSize: '12px', color: 'var(--text-secondary)' }}
                 />
               </div>
 
@@ -265,6 +288,33 @@ export default function PolicySearch({ user }) {
                   }}>
                     {selectedPolicy.content}
                   </div>
+
+                  {selectedPolicy.file_url && (
+                    <div style={{ marginTop: '15px', borderTop: '1px solid var(--border-glass)', paddingTop: '15px' }}>
+                      <a 
+                        href={`https://hrms-backend-gamma.vercel.app${selectedPolicy.file_url}`} 
+                        target="_blank" 
+                        rel="noreferrer"
+                        className="btn-primary"
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '8px',
+                          background: 'var(--brand-gradient)',
+                          color: 'white',
+                          padding: '10px 18px',
+                          borderRadius: '10px',
+                          fontSize: '13px',
+                          fontWeight: '700',
+                          textDecoration: 'none',
+                          boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
+                          cursor: 'pointer'
+                        }}
+                      >
+                        <FileText size={16} /> View/Download Policy Document
+                      </a>
+                    </div>
+                  )}
                 </div>
               ) : (
                 <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '200px', border: '1px dashed var(--border-glass)', borderRadius: '20px', color: 'var(--text-secondary)', fontSize: '14px' }}>
@@ -393,6 +443,33 @@ export default function PolicySearch({ user }) {
                 }}>
                   {selectedPolicy.content}
                 </div>
+
+                {selectedPolicy.file_url && (
+                  <div style={{ marginTop: '15px', borderTop: '1px solid var(--border-glass)', paddingTop: '15px' }}>
+                    <a 
+                      href={`https://hrms-backend-gamma.vercel.app${selectedPolicy.file_url}`} 
+                      target="_blank" 
+                      rel="noreferrer"
+                      className="btn-primary"
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '8px',
+                        background: 'var(--brand-gradient)',
+                        color: 'white',
+                        padding: '10px 18px',
+                        borderRadius: '10px',
+                        fontSize: '13px',
+                        fontWeight: '700',
+                        textDecoration: 'none',
+                        boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      <FileText size={16} /> View/Download Policy Document
+                    </a>
+                  </div>
+                )}
               </div>
             ) : (
               <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '300px', border: '1px dashed var(--border-glass)', borderRadius: '20px', color: 'var(--text-secondary)', fontSize: '14px' }}>
