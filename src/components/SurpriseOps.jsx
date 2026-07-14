@@ -824,8 +824,8 @@ export default function SurpriseOps() {
                               }}
                             >
                               <option value="">-- Select Recipient --</option>
-                              {employees.filter(e => e.personal_email).map(e => (
-                                <option key={e.id} value={e.personal_email}>{e.name} ({e.personal_email})</option>
+                              {employees.filter(e => e.email).map(e => (
+                                <option key={e.id} value={e.email}>{e.name} ({e.email})</option>
                               ))}
                             </select>
                           )}
