@@ -6,7 +6,6 @@ export default function PolicySearch({ user }) {
   const [policies, setPolicies] = useState([]);
   const [category, setCategory] = useState('');
   const [title, setTitle] = useState('');
-  const [content, setContent] = useState('');
   const [policyFile, setPolicyFile] = useState(null);
   const [status, setStatus] = useState('');
   const [error, setError] = useState('');
@@ -34,19 +33,16 @@ export default function PolicySearch({ user }) {
 
   const handleCreatePolicy = async (e) => {
     e.preventDefault();
-    if (!title || !content || !category) return;
+    if (!title || !category || !policyFile) return;
     try {
       const formData = new FormData();
       formData.append('category', category.trim());
       formData.append('title', title.trim());
-      formData.append('content', content.trim());
-      if (policyFile) {
-        formData.append('file', policyFile);
-      }
+      formData.append('content', '');
+      formData.append('file', policyFile);
 
       const newPolicy = await api.policies.create(formData);
       setTitle('');
-      setContent('');
       setCategory('');
       setPolicyFile(null);
       const fileInput = document.getElementById('policy-file-input');
@@ -145,24 +141,14 @@ export default function PolicySearch({ user }) {
               </div>
 
               <div className="form-group">
-                <label style={{ fontSize: '13px', fontWeight: '750', color: 'var(--text-secondary)', marginBottom: '6px', display: 'block' }}>Policy Document File (Optional)</label>
+                <label style={{ fontSize: '13px', fontWeight: '750', color: 'var(--text-secondary)', marginBottom: '6px', display: 'block' }}>Policy Document File (Compulsory)</label>
                 <input 
                   id="policy-file-input"
                   type="file" 
                   accept=".pdf, .docx, .doc, .png, .jpg, .jpeg"
                   onChange={(e) => setPolicyFile(e.target.files[0])}
-                  style={{ fontSize: '12px', color: 'var(--text-secondary)' }}
-                />
-              </div>
-
-              <div className="form-group">
-                <label style={{ fontSize: '13px', fontWeight: '750', color: 'var(--text-secondary)', marginBottom: '6px', display: 'block' }}>SOP Text Content</label>
-                <textarea 
-                  placeholder="Enter full policy guidelines..." 
-                  value={content} 
-                  onChange={(e) => setContent(e.target.value)} 
                   required
-                  style={{ width: '100%', height: '140px', background: 'var(--bg-input)', border: '1px solid var(--border-glass)', borderRadius: '10px', color: 'var(--text-primary)', padding: '12px', fontFamily: 'var(--font-sans)', outline: 'none', resize: 'none', lineHeight: '1.5' }}
+                  style={{ fontSize: '12px', color: 'var(--text-secondary)' }}
                 />
               </div>
 
