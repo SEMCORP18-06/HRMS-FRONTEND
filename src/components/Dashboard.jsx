@@ -16,7 +16,6 @@ const EMPLOYEE_TILES = [
   { id: 'assetManager', name: 'Asset Manager', icon: Cpu, color: '#06b6d4', desc: 'View your checked-out hardware and return due dates' },
   { id: 'docVault', name: 'Document Vault', icon: FileText, color: '#14b8a6', desc: 'Self-service digital certificates' },
   { id: 'offboarding', name: 'Offboarding', icon: UserMinus, color: '#ef4444', desc: 'Custom notice & task checklists' },
-  { id: 'surveys', name: 'Pulse Surveys', icon: MessageSquare, color: '#84cc16', desc: 'Burnout & engagement analytics' },
   { id: 'policies', name: 'Centralized Policies', icon: Search, color: '#6366f1', desc: 'Browse company SOPs, guidelines, and benefits' },
 ];
 
@@ -32,7 +31,6 @@ const ADMIN_TILES = [
   { id: 'assetManager', name: 'Asset Manager', icon: Cpu, color: '#06b6d4', desc: 'Hardware checkout & return alerts' },
   { id: 'docVault', name: 'Document Vault', icon: FileText, color: '#14b8a6', desc: 'Self-service digital certificates' },
   { id: 'offboarding', name: 'Offboarding', icon: UserMinus, color: '#ef4444', desc: 'Deprovisioning & task checklists' },
-  { id: 'surveys', name: 'Pulse Surveys', icon: MessageSquare, color: '#84cc16', desc: 'Burnout & engagement analytics' },
   { id: 'policies', name: 'Centralized Policies', icon: Search, color: '#6366f1', desc: 'Browse company SOPs, guidelines, and benefits' },
 ];
 

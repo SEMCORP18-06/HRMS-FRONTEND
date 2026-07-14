@@ -10,7 +10,6 @@ import EventPlanner from './components/EventPlanner';
 import AssetManager from './components/AssetManager';
 import DocumentVault from './components/DocumentVault';
 import Offboarding from './components/Offboarding';
-import PulseSurveys from './components/PulseSurveys';
 import PolicySearch from './components/PolicySearch';
 import EmployeeDirectory from './components/EmployeeDirectory';
 import Attendance from './components/Attendance';
@@ -184,7 +183,6 @@ export default function App() {
         case 'assetManager': return <AssetManager activeTenant={activeTenant} user={effectiveUser} />;
         case 'docVault': return <DocumentVault activeTenant={activeTenant} user={effectiveUser} />;
         case 'offboarding': return <Offboarding activeTenant={activeTenant} user={effectiveUser} />;
-        case 'surveys': return <PulseSurveys activeTenant={activeTenant} />;
         case 'policies': return <PolicySearch activeTenant={activeTenant} user={effectiveUser} />;
         default: return <div>Module not implemented</div>;
       }
