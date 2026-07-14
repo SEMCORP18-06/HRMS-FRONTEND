@@ -292,11 +292,7 @@ export default function Attendance({ activeTenant, user }) {
   const handleExport = (format) => {
     const token = localStorage.getItem('hr_token');
     const monthStr = String(currentMonth + 1).padStart(2, '0');
-    let base = window.location.origin;
-    if (window.location.port !== '8000') {
-      const hostname = window.location.hostname || 'localhost';
-      base = `http://${hostname}:8000`;
-    }
+    const base = 'https://hrms-backend-gamma.vercel.app';
     const url = `${base}/api/attendance/admin/export?year=${currentYear}&month=${monthStr}&format=${format}&token=${encodeURIComponent(token)}`;
     
     // Direct absolute link click with target='_self'

@@ -1,4 +1,4 @@
-const BASE_URL = '/api';
+const BASE_URL = 'https://hrms-backend-gamma.vercel.app/api';
 
 export async function request(endpoint, options = {}) {
   const token = localStorage.getItem('hr_token');

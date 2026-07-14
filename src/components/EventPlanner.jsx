@@ -142,9 +142,7 @@ export default function EventPlanner({ activeTenant, user }) {
   useEffect(() => {
     if (isAdmin) return; // Admin already has the source
     const token = localStorage.getItem('hr_token');
-    const base = window.location.port !== '8000'
-      ? `http://${window.location.hostname}:8000`
-      : '';
+    const base = 'https://hrms-backend-gamma.vercel.app';
     const url = `${base}/api/events/stream`;
     let es;
     try {

@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { api } from '../utils/api';
 import { IndianRupee, Upload, Mail, Check, AlertTriangle, Download, FileText, Table2, ChevronDown, User, Building2, BadgeCheck } from 'lucide-react';
 
-const API_BASE = '/api';
+const API_BASE = 'https://hrms-backend-gamma.vercel.app/api';
 
 export default function PayrollHub() {
   const [payrolls, setPayrolls] = useState([]);

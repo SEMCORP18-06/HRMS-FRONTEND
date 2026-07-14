@@ -19,7 +19,7 @@ function PreviewModal({ file, onClose }) {
   if (!file) return null;
   const token = localStorage.getItem('hr_token');
   // Build a raw URL that includes auth token as query param
-  const rawUrl = `${window.location.protocol}//${window.location.hostname}:8000/static/uploads/elibrary/${file.filename}?token=${encodeURIComponent(token || '')}`;
+  const rawUrl = `https://hrms-backend-gamma.vercel.app/static/uploads/elibrary/${file.filename}?token=${encodeURIComponent(token || '')}`;
 
   let content;
   if (file.ext === '.pdf') {
