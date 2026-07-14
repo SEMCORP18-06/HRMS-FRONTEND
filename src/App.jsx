@@ -16,13 +16,21 @@ import EmployeeDirectory from './components/EmployeeDirectory';
 import Attendance from './components/Attendance';
 import OnboardingForm from './components/OnboardingForm';
 import MyProfile from './components/MyProfile';
-import { api } from './utils/api';
+import { useAuth } from './context/AuthContext';
+import RoleSwitcher from './components/RoleSwitcher';
 
 export default function App() {
-  const [user, setUser] = useState(null);
-  const [activeTenant, setActiveTenant] = useState(null);
+  const { 
+    user, 
+    activeTenant, 
+    checkingAuth, 
+    currentRole, 
+    login, 
+    logout, 
+    refreshUser 
+  } = useAuth();
+  
   const [activeModule, setActiveModule] = useState(null);
-  const [checkingAuth, setCheckingAuth] = useState(true);
   const [globalPopup, setGlobalPopup] = useState(null);
   const [inviteToken, setInviteToken] = useState(() => {
     const params = new URLSearchParams(window.location.search);
@@ -50,54 +58,28 @@ export default function App() {
     window.confirm = window.customConfirm;
   }, []);
 
+  // Secure Layout/Routing Wrapper: protect Admin modules from regular employees
   useEffect(() => {
-    const token = localStorage.getItem('hr_token');
-    if (token) {
-      api.auth.me()
-        .then(data => {
-          setUser(data.user);
-          setActiveTenant(data.tenant);
-        })
-        .catch(err => {
-          console.error("Auth check failed:", err);
-          localStorage.removeItem('hr_token');
-        })
-        .finally(() => {
-          setCheckingAuth(false);
-        });
-    } else {
-      setCheckingAuth(false);
+    if (activeModule && currentRole === 'Employee') {
+      const adminOnlyModules = ['directory', 'celebrations', 'payroll', 'dailyPulse', 'surpriseOps'];
+      if (adminOnlyModules.includes(activeModule)) {
+        window.customAlert('Access Denied: You do not have authorization to view this admin panel.', 'Authorization Error');
+        setActiveModule(null);
+      }
     }
-  }, []);
+  }, [activeModule, currentRole]);
 
   const handleLoginSuccess = (userData, tenantData) => {
-    // After a successful login/signup, always fetch the full profile from auth/me
-    // to ensure all onboarding fields (dob, doj, department, etc.) are populated.
-    // The login/signup endpoint only returns a minimal {id, name, email, role} object,
-    // but auth/me returns the complete employee profile.
-    setActiveTenant(tenantData);
-    api.auth.me()
-      .then(data => {
-        setUser(data.user);
-        if (data.tenant) setActiveTenant(data.tenant);
-      })
-      .catch(() => {
-        // Fallback to whatever data the login returned
-        setUser(userData);
-      });
+    login(userData, tenantData);
   };
 
   const handleLogout = () => {
-    localStorage.removeItem('hr_token');
-    setUser(null);
-    setActiveTenant(null);
+    logout();
     setActiveModule(null);
   };
 
   const handleUserUpdate = () => {
-    api.auth.me().then(data => {
-      setUser(data.user);
-    }).catch(err => console.error("Failed to refresh user:", err));
+    refreshUser();
   };
 
   const renderGlobalPopup = () => {
@@ -218,6 +200,7 @@ export default function App() {
                 <span className="tenant-badge" style={{ fontSize: '10px' }}>{activeTenant.name}</span>
               </div>
               <div className="user-profile">
+                <RoleSwitcher />
                 <button className="back-btn" onClick={() => setActiveModule(null)} style={{ marginRight: '15px' }}>
                   ← Back to Grid
                 </button>

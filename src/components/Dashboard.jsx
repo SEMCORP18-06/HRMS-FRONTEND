@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../utils/api';
+import { useAuth } from '../context/AuthContext';
+import RoleSwitcher from './RoleSwitcher';
 import { 
   Gift, IndianRupee, Quote, Sparkles, BookOpen, Calendar, 
   Cpu, FileText, UserMinus, MessageSquare, Search, Clock, LogOut,
@@ -61,7 +63,8 @@ export default function Dashboard({ user, activeTenant, onLogout, onSelectModule
     setIsLightMode(!isLightMode);
   };
 
-  const isAdmin = user?.role === 'Admin (HR)';
+  const { currentRole } = useAuth();
+  const isAdmin = currentRole === 'Admin';
   const tiles = isAdmin ? ADMIN_TILES : EMPLOYEE_TILES;
 
 
@@ -81,6 +84,7 @@ export default function Dashboard({ user, activeTenant, onLogout, onSelectModule
             <span className="tenant-badge">{activeTenant.name}</span>
           </div>
           <div className="user-profile">
+            <RoleSwitcher />
             {/* Light/Dark Mode Toggle Switch */}
             <button 
               className="theme-toggle-btn" 
