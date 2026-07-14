@@ -590,19 +590,21 @@ export default function Attendance({ activeTenant, user }) {
           {/* Action Bar: Allocation and Lock controls */}
           <div style={{ display: 'flex', gap: '10px', marginBottom: '15px', background: 'rgba(255,255,255,0.01)', padding: '10px', borderRadius: '10px', border: '1px solid var(--border-glass)', flexWrap: 'wrap', alignItems: 'center' }}>
             <button
-              onClick={() => setShowAllocPanel(prev => !prev)}
+              onClick={() => setShowAllocPanel(!showAllocPanel)}
               style={{
-                background: showAllocPanel ? '#10b981' : 'rgba(255,255,255,0.05)',
+                background: showAllocPanel ? '#475569' : '#10b981',
                 color: '#fff',
-                border: '1px solid var(--border-glass)',
-                padding: '6px 12px',
+                border: 'none',
+                padding: '8px 14px',
                 borderRadius: '6px',
                 fontSize: '12px',
                 cursor: 'pointer',
                 fontWeight: 'bold',
                 display: 'flex',
                 alignItems: 'center',
-                gap: '6px'
+                gap: '6px',
+                transition: 'all 0.3s ease',
+                boxShadow: '0 4px 12px rgba(16, 185, 129, 0.2)'
               }}
             >
               <Leaf size={14} /> {showAllocPanel ? 'Close Allocation' : 'Allocate Leaves'}
