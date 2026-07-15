@@ -98,7 +98,7 @@ export default function PolicySearch({ user }) {
 
       {isAdmin ? (
         // ==================== ADMIN VIEW (2 Columns: Register SOP | Browse/Preview) ====================
-        <div style={{ display: 'grid', gridTemplateColumns: '1.1fr 1.9fr', gap: '30px' }}>
+        <div className="responsive-grid-admin-policies">
           {/* Left Column: Register SOP Form */}
           <div className="pane-card" style={{
             background: 'var(--bg-card)',
@@ -312,7 +312,7 @@ export default function PolicySearch({ user }) {
         </div>
       ) : (
         // ==================== EMPLOYEE VIEW (Clean 2-Pane: Directory List on Left | Content View on Right) ====================
-        <div style={{ display: 'grid', gridTemplateColumns: '0.95fr 2.05fr', gap: '30px' }}>
+        <div className="responsive-grid-employee-policies">
           {/* Left Column: Filter & Policy List */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
             {/* Category tabs */}

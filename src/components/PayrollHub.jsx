@@ -491,7 +491,7 @@ export default function PayrollHub() {
               Select department and employee to auto-fill the details card.
             </p>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+            <div className="grid-cols-2">
               {/* Department dropdown */}
               <div>
                 <label style={labelStyle}>Department</label>
@@ -531,7 +531,7 @@ export default function PayrollHub() {
 
             {/* Employee Info Card */}
             {selectedEmployee && (
-              <div style={empCardStyle}>
+              <div className="payroll-emp-card">
                 <div style={empFieldStyle}>
                   <span style={{ ...labelStyle, marginBottom: 0, color: '#64748b' }}>Name</span>
                   <span style={{ fontWeight: '600', fontSize: '14px' }}>{selectedEmployee.name || selectedEmployee.full_name || '—'}</span>

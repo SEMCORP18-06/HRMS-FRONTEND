@@ -368,7 +368,7 @@ export default function LMSClub({ user }) {
             </button>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: isAdmin ? '340px 1fr' : '1fr', gap: '24px' }}>
+          <div className={isAdmin ? "lms-admin-layout" : ""}>
 
             {/* ── Admin Form Panel (Left) ── */}
             {isAdmin && (
@@ -586,7 +586,7 @@ export default function LMSClub({ user }) {
 
       {/* ══════════════════════ DISCUSSIONS TAB ══════════════════════ */}
       {activeTab === 'discussions' && (
-        <div style={{ display: 'grid', gridTemplateColumns: !isAdmin ? '360px 1fr' : '1fr', gap: '24px' }}>
+        <div className={!isAdmin ? "lms-student-layout" : ""}>
 
           {/* Employee: Start Discussion Form (Left) */}
           {!isAdmin && (

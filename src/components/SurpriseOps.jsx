@@ -346,7 +346,7 @@ export default function SurpriseOps() {
 
       {activeTab === 'appreciation' ? (
         // ==================== APPRECIATION TAB ====================
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.3fr', gap: '30px' }}>
+        <div className="responsive-grid-surprise-ops-appreciation">
           
           {/* Left Pane: Issue Appreciation Form */}
           <div className="pane-card" style={{
@@ -713,7 +713,7 @@ export default function SurpriseOps() {
         </div>
       ) : (
         // ==================== MONETARY TAB ====================
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.6fr', gap: '30px' }}>
+        <div className="responsive-grid-surprise-ops-coupon">
           
           {/* Add Coupon form */}
           <div className="pane-card" style={{

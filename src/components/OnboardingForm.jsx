@@ -224,15 +224,9 @@ export default function OnboardingForm({ token, onComplete }) {
   };
 
   return (
-    <div style={{ width: '100vw', minHeight: '100vh', display: 'flex', background: '#f3f4f6' }}>
+    <div className="onboard-container">
       {/* ── Left branding panel ────────────────────────────────────────────────── */}
-      <div style={{
-        width: '320px', minWidth: '320px', minHeight: '100vh',
-        background: 'linear-gradient(160deg, #15803d 0%, #1d4ed8 60%, #7c3aed 100%)',
-        display: 'flex', flexDirection: 'column', justifyContent: 'center',
-        alignItems: 'flex-start', padding: '60px 36px', color: '#ffffff',
-        position: 'sticky', top: 0, height: '100vh', overflowY: 'auto'
-      }}>
+      <div className="onboard-sidebar">
         <img
           src="/logo.png"
           alt="SEMCO Logo"
@@ -269,7 +263,7 @@ export default function OnboardingForm({ token, onComplete }) {
       </div>
 
       {/* ── Right form panel ───────────────────────────────────────────────────── */}
-      <div style={{ flex: 1, overflowY: 'auto', padding: '48px 56px' }}>
+      <div className="onboard-main">
         {/* Header */}
         <div style={{ marginBottom: '32px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '6px' }}>
@@ -293,7 +287,7 @@ export default function OnboardingForm({ token, onComplete }) {
           {/* ── Personal Identity ──────────────────────────────────────────────── */}
           <div>
             <div style={sectionHeadStyle}><User size={16} />Personal Identity</div>
-            <div style={{ display: 'grid', gridTemplateColumns: '140px 1fr 1fr', gap: '16px' }}>
+            <div className="grid-onboard-avatar">
               <div>
                 <label style={labelStyle}>Salutation</label>
                 <select value={salutation} onChange={(e) => setSalutation(e.target.value)} style={{ ...inputStyle, cursor: 'pointer' }}>
@@ -312,7 +306,7 @@ export default function OnboardingForm({ token, onComplete }) {
           {/* ── Contact Information ────────────────────────────────────────────── */}
           <div>
             <div style={sectionHeadStyle}><Mail size={16} />Contact Information</div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+            <div className="grid-cols-2">
               <div>
                 <label style={labelStyle}>Personal Email Address</label>
                 <input type="email" value={personalEmail} onChange={(e) => setPersonalEmail(e.target.value)} style={inputStyle} placeholder="your@gmail.com" />
@@ -335,7 +329,7 @@ export default function OnboardingForm({ token, onComplete }) {
           {/* ── Employment Details ─────────────────────────────────────────────── */}
           <div>
             <div style={sectionHeadStyle}><Briefcase size={16} />Employment Details</div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '16px' }}>
+            <div className="grid-cols-3">
               <div>
                 <label style={labelStyle}>Employee ID</label>
                 <input type="text" value={empId} onChange={(e) => setEmpId(e.target.value)} style={inputStyle} placeholder="SEMCO-001" />
@@ -354,7 +348,7 @@ export default function OnboardingForm({ token, onComplete }) {
           {/* ── Dates & Age ────────────────────────────────────────────────────── */}
           <div>
             <div style={sectionHeadStyle}><Calendar size={16} />Dates &amp; Age</div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 140px', gap: '16px' }}>
+            <div className="grid-cols-3">
               <div>
                 <label style={labelStyle}>Date of Birth (DOB)</label>
                 <input type="date" value={dob} onChange={(e) => setDob(e.target.value)} style={inputStyle} />
@@ -385,7 +379,7 @@ export default function OnboardingForm({ token, onComplete }) {
 
             {/* Mandatory Documents */}
             <p style={{ fontSize: '13px', fontWeight: '700', color: '#374151', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '12px' }}>Identity & KYC Documents</p>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px', marginBottom: '20px' }}>
+            <div className="grid-cols-2" style={{ marginBottom: '20px' }}>
               <FilePicker label="Aadhaar Card" accept=".pdf" file={aadhaar} setFile={setAadhaar} required hint="(PDF)" />
               <FilePicker label="PAN Card" accept=".pdf" file={pan} setFile={setPan} required hint="(PDF)" />
               <FilePicker label="Profile Photo" accept=".jpg,.jpeg,.png" file={profilePhoto} setFile={setProfilePhoto} required hint="(JPG / PNG)" />
@@ -394,7 +388,7 @@ export default function OnboardingForm({ token, onComplete }) {
 
             {/* Optional Documents */}
             <p style={{ fontSize: '13px', fontWeight: '700', color: '#374151', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '12px' }}>Optional Documents</p>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px', marginBottom: '24px' }}>
+            <div className="grid-cols-2" style={{ marginBottom: '24px' }}>
               <FilePicker label="Bank Passbook / Cancelled Cheque" accept=".pdf,.jpg,.jpeg,.png" file={passbook} setFile={setPassbook} hint="(PDF / Image)" />
               <FilePicker label="Experience / Relieving Letter" accept=".pdf" file={experienceLetter} setFile={setExperienceLetter} hint="(PDF)" />
             </div>
@@ -409,7 +403,7 @@ export default function OnboardingForm({ token, onComplete }) {
           {/* ── Academic Performance ───────────────────────────────────────────── */}
           <div>
             <div style={sectionHeadStyle}><GraduationCap size={16} />Academic Performance</div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '16px' }}>
+            <div className="grid-cols-3">
               <div>
                 <label style={labelStyle}>10th Percentage (%)</label>
                 <input type="number" value={percentage10th} onChange={(e) => setPercentage10th(e.target.value)} style={inputStyle} placeholder="e.g. 85.5" min="0" max="100" step="0.01" />
@@ -428,7 +422,7 @@ export default function OnboardingForm({ token, onComplete }) {
           {/* ── Bank Details ───────────────────────────────────────────────────── */}
           <div>
             <div style={sectionHeadStyle}><CreditCard size={16} />Bank Details <span style={{ fontSize: '12px', fontWeight: '500', color: '#64748b', textTransform: 'none', letterSpacing: '0' }}>&nbsp;— Required for Payroll Processing</span></div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+            <div className="grid-cols-2">
               <div>
                 <label style={labelStyle}>Bank Name <span style={{ color: '#ef4444' }}>*</span></label>
                 <input type="text" value={bankName} onChange={(e) => setBankName(e.target.value)} style={inputStyle} placeholder="e.g. State Bank of India" />

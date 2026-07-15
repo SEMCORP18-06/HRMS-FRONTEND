@@ -899,3 +899,232 @@ body.light-mode .role-switcher-bg {
 .role-switcher-icon {
   opacity: 0.8;
 }
+
+/* ──────────────────────────────────────────────────────────────────────────
+   MOBILE-FIRST RESPONSIVE GRID UTILITIES & TOUCH OPTIMIZATIONS
+   ────────────────────────────────────────────────────────────────────────── */
+
+/* Responsive Grid Helper Classes */
+.grid-cols-2 {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 15px;
+}
+
+.grid-cols-3 {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 15px;
+}
+
+.grid-profile-avatar {
+  display: grid;
+  grid-template-columns: 130px 1fr;
+  gap: 15px;
+}
+
+.grid-profile-contact {
+  display: grid;
+  grid-template-columns: 1fr 1fr 120px;
+  gap: 15px;
+}
+
+.grid-onboard-avatar {
+  display: grid;
+  grid-template-columns: 140px 1fr 1fr;
+  gap: 16px;
+}
+
+.responsive-grid-admin-policies {
+  display: grid;
+  grid-template-columns: 1.1fr 1.9fr;
+  gap: 30px;
+}
+
+.responsive-grid-employee-policies {
+  display: grid;
+  grid-template-columns: 0.95fr 2.05fr;
+  gap: 30px;
+}
+
+.responsive-grid-surprise-ops-appreciation {
+  display: grid;
+  grid-template-columns: 1fr 1.3fr;
+  gap: 30px;
+}
+
+.responsive-grid-surprise-ops-coupon {
+  display: grid;
+  grid-template-columns: 1fr 1.6fr;
+  gap: 30px;
+}
+
+.responsive-grid-offboarding {
+  display: grid;
+  grid-template-columns: 1fr 340px;
+  gap: 30px;
+}
+
+.payroll-emp-card {
+  background: linear-gradient(135deg, rgba(16,185,129,0.07), rgba(59,130,246,0.07));
+  border: 1px solid rgba(16,185,129,0.25);
+  border-radius: 14px;
+  padding: 18px 22px;
+  margin-top: 18px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px 24px;
+}
+
+.lms-admin-layout {
+  display: grid;
+  grid-template-columns: 340px 1fr;
+  gap: 24px;
+}
+
+.lms-student-layout {
+  display: grid;
+  grid-template-columns: 360px 1fr;
+  gap: 24px;
+}
+
+/* Onboarding Form Layout Classes */
+.onboard-container {
+  width: 100vw;
+  min-height: 100vh;
+  display: flex;
+  background: #f3f4f6;
+  flex-direction: row;
+}
+
+.onboard-sidebar {
+  width: 320px;
+  min-width: 320px;
+  min-height: 100vh;
+  background: linear-gradient(160deg, #15803d 0%, #1d4ed8 60%, #7c3aed 100%);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: flex-start;
+  padding: 60px 36px;
+  color: #ffffff;
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  overflow-y: auto;
+}
+
+.onboard-main {
+  flex: 1;
+  padding: 50px 70px;
+  overflow-y: auto;
+}
+
+/* Touch-optimized target min-heights */
+.btn-primary, .btn-secondary, .btn-danger, .back-btn,
+.form-group input, .form-group select, .form-group textarea {
+  min-height: 48px;
+}
+
+/* Smooth Touch Scrolling */
+.data-table-wrapper {
+  -webkit-overflow-scrolling: touch;
+}
+
+/* ──────────────────────────────────────────────────────────────────────────
+   RESPONSIVE MEDIA QUERIES FOR SCREEN BREAKPOINTS
+   ────────────────────────────────────────────────────────────────────────── */
+
+@media (max-width: 1024px) {
+  .responsive-grid-admin-policies,
+  .responsive-grid-employee-policies,
+  .responsive-grid-surprise-ops-appreciation,
+  .responsive-grid-surprise-ops-coupon,
+  .responsive-grid-offboarding {
+    grid-template-columns: 1fr !important;
+    gap: 20px !important;
+  }
+}
+
+@media (max-width: 800px) {
+  .onboard-container {
+    flex-direction: column !important;
+  }
+  .onboard-sidebar {
+    width: 100% !important;
+    min-width: unset !important;
+    min-height: unset !important;
+    height: auto !important;
+    position: relative !important;
+    padding: 30px 20px !important;
+  }
+  .onboard-main {
+    padding: 30px 20px !important;
+  }
+  .lms-admin-layout, .lms-student-layout {
+    grid-template-columns: 1fr !important;
+    gap: 20px !important;
+  }
+}
+
+@media (max-width: 768px) {
+  .navbar {
+    flex-direction: column !important;
+    gap: 15px !important;
+    padding: 15px !important;
+    align-items: center !important;
+    text-align: center !important;
+  }
+  .user-profile {
+    flex-direction: column !important;
+    gap: 12px !important;
+    align-items: center !important;
+    width: 100% !important;
+  }
+  .user-info {
+    text-align: center !important;
+  }
+  .tiles-grid {
+    grid-template-columns: 1fr !important;
+    gap: 16px !important;
+  }
+  .welcome-banner h2 {
+    font-size: 26px !important;
+  }
+  .welcome-banner p {
+    font-size: 14px !important;
+  }
+  .btn-primary, .btn-secondary, .btn-danger, .back-btn {
+    padding: 14px 22px !important;
+    font-size: 15px !important;
+    justify-content: center !important;
+  }
+}
+
+@media (max-width: 600px) {
+  h1, h2, .h1, .h2 {
+    font-size: 26px !important;
+  }
+  h3, h4, .h3, .h4 {
+    font-size: 18px !important;
+  }
+  p, body, span, td, th, input, select, textarea, label {
+    font-size: 15px !important;
+  }
+  .grid-cols-2,
+  .grid-cols-3,
+  .grid-profile-avatar,
+  .grid-profile-contact,
+  .grid-onboard-avatar,
+  .payroll-emp-card {
+    grid-template-columns: 1fr !important;
+    gap: 12px !important;
+  }
+  .modal-content-popup {
+    width: 95% !important;
+    padding: 20px !important;
+    margin: 10px !important;
+    max-height: 95vh !important;
+  }
+}
+

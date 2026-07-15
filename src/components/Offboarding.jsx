@@ -394,7 +394,7 @@ export default function Offboarding({ activeTenant, user }) {
     }
 
     return (
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 340px', gap: '30px', maxWidth: '1000px', margin: '0 auto', alignItems: 'start' }}>
+      <div className="responsive-grid-offboarding" style={{ maxWidth: '1000px', margin: '0 auto', alignItems: 'start' }}>
         
         {/* Left Column: Flow step panel */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
@@ -427,7 +427,7 @@ export default function Offboarding({ activeTenant, user }) {
                 </label>
 
                 {serveNotice && (
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' }}>
+                  <div className="grid-cols-2">
                     <div className="form-group" style={{ margin: 0 }}>
                       <label style={{ fontWeight: 'bold', fontSize: '13px' }}>Notice Duration</label>
                       <input 

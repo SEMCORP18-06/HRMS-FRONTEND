@@ -131,7 +131,7 @@ export default function MyProfile({ user, onUserUpdate }) {
           )}
 
           <form onSubmit={handleSaveInfo} style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
-            <div style={{ display: 'grid', gridTemplateColumns: '130px 1fr', gap: '15px' }}>
+            <div className="grid-profile-avatar">
               <div className="form-group">
                 <label>Salutation</label>
                 <select value={salutation} onChange={(e) => setSalutation(e.target.value)} style={{ width: '100%', background: 'rgba(0,0,0,0.2)', color: '#fff', border: '1px solid var(--border-glass)', borderRadius: '8px', padding: '10px' }}>
@@ -146,7 +146,7 @@ export default function MyProfile({ user, onUserUpdate }) {
               </div>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' }}>
+            <div className="grid-cols-2">
               <div className="form-group">
                 <label>Employee ID (Emp. ID)</label>
                 <input type="text" value={empId} onChange={(e) => setEmpId(e.target.value)} style={{ width: '100%' }} />
@@ -157,7 +157,7 @@ export default function MyProfile({ user, onUserUpdate }) {
               </div>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' }}>
+            <div className="grid-cols-2">
               <div className="form-group">
                 <label>Department</label>
                 <input type="text" value={department} onChange={(e) => setDepartment(e.target.value)} style={{ width: '100%' }} />
@@ -168,7 +168,7 @@ export default function MyProfile({ user, onUserUpdate }) {
               </div>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 120px', gap: '15px' }}>
+            <div className="grid-profile-contact">
               <div className="form-group">
                 <label>Date of Birth (DOB)</label>
                 <input type="date" value={dob} onChange={(e) => setDob(e.target.value)} style={{ width: '100%' }} />
@@ -183,7 +183,7 @@ export default function MyProfile({ user, onUserUpdate }) {
               </div>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' }}>
+            <div className="grid-cols-2">
               <div className="form-group">
                 <label>Personal Mail ID</label>
                 <input type="email" value={personalEmail} onChange={(e) => setPersonalEmail(e.target.value)} style={{ width: '100%' }} />
@@ -194,7 +194,7 @@ export default function MyProfile({ user, onUserUpdate }) {
               </div>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' }}>
+            <div className="grid-cols-2">
               <div className="form-group">
                 <label>Office Contact</label>
                 <input type="text" value={officeContact} onChange={(e) => setOfficeContact(e.target.value)} style={{ width: '100%' }} />
