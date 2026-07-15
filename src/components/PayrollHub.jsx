@@ -131,7 +131,7 @@ export default function PayrollHub() {
     let pt_yearly = 2400;
     if (ptType === 'yearly2500_feb') {
       pt_yearly = 2500;
-      if (calcMonth === 'February' || calcMonth === 'March') {
+      if (calcMonth === 'February') {
         pt = 300;
       } else {
         pt = 200;
