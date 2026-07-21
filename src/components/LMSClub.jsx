@@ -18,8 +18,7 @@ function FileIcon({ ext, size = 32 }) {
 function PreviewModal({ file, onClose }) {
   if (!file) return null;
   const token = localStorage.getItem('hr_token');
-  // Build a raw URL that includes auth token as query param
-  const rawUrl = `https://hrms-backend-gamma.vercel.app/static/uploads/elibrary/${file.filename}?token=${encodeURIComponent(token || '')}`;
+  const rawUrl = file.file_data || `https://hrms-backend-gamma.vercel.app/api/elibrary/file/${file.id}?token=${encodeURIComponent(token || '')}`;
 
   let content;
   if (file.ext === '.pdf') {
@@ -27,7 +26,7 @@ function PreviewModal({ file, onClose }) {
       <iframe
         src={rawUrl}
         title={file.title}
-        style={{ width: '100%', height: '60vh', border: 'none', borderRadius: '10px' }}
+        style={{ width: '100%', height: '60vh', border: 'none', borderRadius: '10px', background: '#ffffff' }}
       />
     );
   } else if (file.ext === '.xlsx') {
@@ -37,7 +36,7 @@ function PreviewModal({ file, onClose }) {
         <p style={{ fontSize: '15px' }}>Excel files cannot be previewed inline.</p>
         <a
           href={rawUrl}
-          download={file.original_name}
+          download={file.original_name || 'document.xlsx'}
           style={{ color: '#10b981', fontWeight: '700', fontSize: '14px' }}
         >
           Download to view
@@ -45,14 +44,13 @@ function PreviewModal({ file, onClose }) {
       </div>
     );
   } else if (file.ext === '.docx') {
-    // Use Google Docs viewer for DOCX (public-accessible) or fallback message
     content = (
       <div style={{ padding: '40px', textAlign: 'center', color: 'var(--text-secondary)' }}>
         <File size={48} style={{ color: '#3b82f6', marginBottom: '16px' }} />
         <p style={{ fontSize: '15px' }}>Word documents cannot be previewed inline.</p>
         <a
           href={rawUrl}
-          download={file.original_name}
+          download={file.original_name || 'document.docx'}
           style={{ color: '#3b82f6', fontWeight: '700', fontSize: '14px' }}
         >
           Download to view
