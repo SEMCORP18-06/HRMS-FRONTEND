@@ -198,8 +198,9 @@ export default function Attendance({ activeTenant, user }) {
   };
 
   const handleMarkCheckbox = async (selection) => {
-    const isCurrentlyChecked = markedToday.includes(selection);
-    setMarkedToday(prev => isCurrentlyChecked ? prev.filter(x => x !== selection) : [...prev, selection]);
+    if (markedToday.includes(selection)) return;
+    
+    setMarkedToday(prev => [...prev, selection]);
     setError('');
     
     try {
@@ -209,7 +210,7 @@ export default function Attendance({ activeTenant, user }) {
     } catch (err) {
       const errMsg = err.message || 'Failed to mark attendance.';
       setError(errMsg);
-      setMarkedToday(prev => isCurrentlyChecked ? [...prev, selection] : prev.filter(x => x !== selection));
+      setMarkedToday(prev => prev.filter(x => x !== selection));
     }
   };
 
@@ -390,21 +391,21 @@ export default function Attendance({ activeTenant, user }) {
                     background: isChecked ? 'rgba(16, 185, 129, 0.08)' : 'rgba(255, 255, 255, 0.01)', 
                     border: isChecked ? '1px solid #10b981' : '1px solid var(--border-glass)', 
                     borderRadius: '12px',
-                    cursor: isLocked ? 'not-allowed' : 'pointer',
+                    cursor: isChecked ? 'default' : isLocked ? 'not-allowed' : 'pointer',
                     transition: 'all 0.2s ease',
-                    opacity: isLocked ? 0.6 : 1
+                    opacity: isChecked ? 0.8 : isLocked ? 0.6 : 1
                   }}
                 >
                   <span style={{ fontSize: '15px', fontWeight: '600', color: isChecked ? '#10b981' : 'var(--text-primary)' }}>{opt}</span>
                   <input 
                     type="checkbox" 
                     checked={isChecked}
-                    disabled={loading || isLocked}
+                    disabled={isChecked || loading || isLocked}
                     onChange={() => handleMarkCheckbox(opt)}
                     style={{ 
                       width: '20px', 
                       height: '20px', 
-                      cursor: isLocked ? 'not-allowed' : 'pointer',
+                      cursor: isChecked ? 'default' : isLocked ? 'not-allowed' : 'pointer',
                       accentColor: '#10b981'
                     }}
                   />
