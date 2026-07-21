@@ -155,9 +155,9 @@ export default function Attendance({ activeTenant, user }) {
 
 
   useEffect(() => {
+    fetchLockStatus();
     if (isAdmin) {
       fetchAdminData();
-      fetchLockStatus();
     } else {
       fetchTodayAttendance();
       fetchMyMonthData();
@@ -342,14 +342,7 @@ export default function Attendance({ activeTenant, user }) {
 
     const monthLabel = new Date(currentYear, currentMonth).toLocaleString('default', { month: 'long', year: 'numeric' });
 
-    const nowTime = new Date();
-    const hours = nowTime.getHours();
-    const minutes = nowTime.getMinutes();
-    const timeInMinutes = hours * 60 + minutes;
-    const startWindow = 10 * 60; // 10:00 AM
-    const endWindow = 10 * 60 + 30; // 10:30 AM
-    const isOutsideTimeWindow = (timeInMinutes < startWindow || timeInMinutes > endWindow);
-    const isLocked = isOutsideTimeWindow && !user?.allow_late_attendance_marking && !isAdmin;
+    const isLocked = lockStatus?.locked === true;
 
     return (
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 340px', gap: '30px', maxWidth: '1000px', margin: '0 auto', alignItems: 'start' }}>
@@ -367,14 +360,7 @@ export default function Attendance({ activeTenant, user }) {
           {isLocked && (
             <div style={{ background: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.2)', padding: '12px', borderRadius: '8px', marginBottom: '15px', color: '#ef4444', fontSize: '13px', fontWeight: '500', display: 'flex', alignItems: 'center', gap: '8px' }}>
               <ShieldAlert size={16} />
-              <span>Attendance portal is locked. Attendance can only be marked between 10:00 AM and 10:30 AM, unless authorized by an HR Admin.</span>
-            </div>
-          )}
-
-          {!isLocked && isOutsideTimeWindow && user?.allow_late_attendance_marking && (
-            <div style={{ background: 'rgba(16, 185, 129, 0.1)', border: '1px solid rgba(16, 185, 129, 0.2)', padding: '12px', borderRadius: '8px', marginBottom: '15px', color: '#10b981', fontSize: '13px', fontWeight: '500', display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <CheckCircle size={16} />
-              <span>Late marking authorized by HR Admin. You can now submit your attendance.</span>
+              <span>Attendance portal is locked for this month by HR Admin. Selections cannot be modified until unlocked.</span>
             </div>
           )}
 
