@@ -55,6 +55,7 @@ export const api = {
     getMyMonth: (year, month) => request(`/attendance/my-month?year=${year}&month=${month}`),
     getAdminMonth: (year, month) => request(`/attendance/admin/month?year=${year}&month=${month}`),
     permitLateAttendance: (employeeId) => request('/attendance/permit/' + employeeId, { method: 'POST' }),
+    permitLateAttendanceAll: () => request('/attendance/permit-all', { method: 'POST' }),
     saveLeaveAllocation: (data) => request('/attendance/leave-allocation', { method: 'POST', body: data }),
     getLeaveAllocations: (year, month, employeeId) => {
       let url = `/attendance/leave-allocation?year=${year}&month=${month}`;
@@ -67,6 +68,7 @@ export const api = {
       return request(url);
     },
     lockMonth: (year, month) => request('/attendance/lock', { method: 'POST', body: { year, month } }),
+    unlockMonth: (year, month) => request('/attendance/unlock', { method: 'POST', body: { year, month } }),
     getLockStatus: (year, month) => request(`/attendance/lock-status?year=${year}&month=${month}`)
   },
   employees: {

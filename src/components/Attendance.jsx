@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../utils/api';
 import { 
-  Clock, Calendar, User, CheckCircle, AlertTriangle, ChevronLeft, ChevronRight, List, Grid, ShieldAlert, Lock, Leaf 
+  Clock, Calendar, User, CheckCircle, AlertTriangle, ChevronLeft, ChevronRight, List, Grid, ShieldAlert, Lock, Unlock, Leaf 
 } from 'lucide-react';
 
 const STATUS_OPTIONS = [
@@ -135,6 +135,24 @@ export default function Attendance({ activeTenant, user }) {
     }
   };
 
+  const handleUnlockMonth = async () => {
+    const monthStr = String(currentMonth + 1).padStart(2, '0');
+    const monthName = new Date(currentYear, currentMonth).toLocaleString('default', { month: 'long', year: 'numeric' });
+    const confirmUnlock = window.confirm(`Are you sure you want to unlock attendance for ${monthName}? This will re-enable attendance edits and submissions.`);
+    if (!confirmUnlock) return;
+
+    setLockLoading(true);
+    try {
+      const res = await api.attendance.unlockMonth(currentYear, monthStr);
+      alert(res.message || 'Month attendance successfully unlocked!');
+      fetchLockStatus();
+    } catch (err) {
+      alert(err.message || 'Failed to unlock month attendance.');
+    } finally {
+      setLockLoading(false);
+    }
+  };
+
 
   useEffect(() => {
     if (isAdmin) {
@@ -180,9 +198,8 @@ export default function Attendance({ activeTenant, user }) {
   };
 
   const handleMarkCheckbox = async (selection) => {
-    if (markedToday.includes(selection)) return;
-    
-    setMarkedToday(prev => [...prev, selection]);
+    const isCurrentlyChecked = markedToday.includes(selection);
+    setMarkedToday(prev => isCurrentlyChecked ? prev.filter(x => x !== selection) : [...prev, selection]);
     setError('');
     
     try {
@@ -192,8 +209,7 @@ export default function Attendance({ activeTenant, user }) {
     } catch (err) {
       const errMsg = err.message || 'Failed to mark attendance.';
       setError(errMsg);
-      await alert(errMsg, "Attendance Portal Locked");
-      setMarkedToday(prev => prev.filter(x => x !== selection));
+      setMarkedToday(prev => isCurrentlyChecked ? [...prev, selection] : prev.filter(x => x !== selection));
     }
   };
 
@@ -333,7 +349,7 @@ export default function Attendance({ activeTenant, user }) {
     const startWindow = 10 * 60; // 10:00 AM
     const endWindow = 10 * 60 + 30; // 10:30 AM
     const isOutsideTimeWindow = (timeInMinutes < startWindow || timeInMinutes > endWindow);
-    const isLocked = isOutsideTimeWindow && !user?.allow_late_attendance_marking;
+    const isLocked = isOutsideTimeWindow && !user?.allow_late_attendance_marking && !isAdmin;
 
     return (
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 340px', gap: '30px', maxWidth: '1000px', margin: '0 auto', alignItems: 'start' }}>
@@ -388,21 +404,21 @@ export default function Attendance({ activeTenant, user }) {
                     background: isChecked ? 'rgba(16, 185, 129, 0.08)' : 'rgba(255, 255, 255, 0.01)', 
                     border: isChecked ? '1px solid #10b981' : '1px solid var(--border-glass)', 
                     borderRadius: '12px',
-                    cursor: isChecked ? 'default' : isLocked ? 'not-allowed' : 'pointer',
+                    cursor: isLocked ? 'not-allowed' : 'pointer',
                     transition: 'all 0.2s ease',
-                    opacity: isChecked ? 0.8 : isLocked ? 0.6 : 1
+                    opacity: isLocked ? 0.6 : 1
                   }}
                 >
                   <span style={{ fontSize: '15px', fontWeight: '600', color: isChecked ? '#10b981' : 'var(--text-primary)' }}>{opt}</span>
                   <input 
                     type="checkbox" 
                     checked={isChecked}
-                    disabled={isChecked || loading || isLocked}
+                    disabled={loading || isLocked}
                     onChange={() => handleMarkCheckbox(opt)}
                     style={{ 
                       width: '20px', 
                       height: '20px', 
-                      cursor: isChecked ? 'default' : isLocked ? 'not-allowed' : 'pointer',
+                      cursor: isLocked ? 'not-allowed' : 'pointer',
                       accentColor: '#10b981'
                     }}
                   />
@@ -611,16 +627,58 @@ export default function Attendance({ activeTenant, user }) {
             </button>
 
             <button
-              onClick={handleLockMonth}
-              disabled={lockStatus.locked || lockLoading}
+              onClick={lockStatus.locked ? handleUnlockMonth : handleLockMonth}
+              disabled={lockLoading}
+              title={lockStatus.locked ? "Click to unlock attendance for this month" : "Click to lock attendance for this month"}
               style={{
-                background: lockStatus.locked ? 'rgba(239, 68, 68, 0.1)' : '#10b981',
-                color: lockStatus.locked ? '#ef4444' : '#fff',
-                border: lockStatus.locked ? '1px solid rgba(239, 68, 68, 0.2)' : 'none',
+                background: lockStatus.locked ? '#ef4444' : '#10b981',
+                color: '#fff',
+                border: 'none',
                 padding: '6px 12px',
                 borderRadius: '6px',
                 fontSize: '12px',
-                cursor: lockStatus.locked ? 'default' : 'pointer',
+                cursor: 'pointer',
+                fontWeight: 'bold',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                opacity: lockLoading ? 0.6 : 1,
+                transition: 'all 0.2s ease',
+                boxShadow: lockStatus.locked ? '0 4px 12px rgba(239, 68, 68, 0.3)' : '0 4px 12px rgba(16, 185, 129, 0.3)'
+              }}
+            >
+              {lockStatus.locked ? (
+                <>
+                  <Unlock size={14} /> Unlock Attendance
+                </>
+              ) : (
+                <>
+                  <Lock size={14} /> Lock Attendance
+                </>
+              )}
+            </button>
+            
+            <button
+              onClick={async () => {
+                setLockLoading(true);
+                try {
+                  const res = await api.attendance.permitLateAttendanceAll();
+                  alert(res.message || 'Late attendance marking permitted for all active employees.');
+                  fetchAdminData();
+                } catch (err) {
+                  alert(err.message || 'Failed to permit late attendance marking.');
+                } finally {
+                  setLockLoading(false);
+                }
+              }}
+              style={{
+                background: '#3b82f6',
+                color: '#fff',
+                border: 'none',
+                padding: '6px 12px',
+                borderRadius: '6px',
+                fontSize: '12px',
+                cursor: 'pointer',
                 fontWeight: 'bold',
                 display: 'flex',
                 alignItems: 'center',
@@ -628,14 +686,8 @@ export default function Attendance({ activeTenant, user }) {
                 opacity: lockLoading ? 0.6 : 1
               }}
             >
-              <Lock size={14} /> {lockStatus.locked ? `Attendance Locked` : `Lock Attendance`}
+              <Clock size={14} /> Permit All (Late Mark)
             </button>
-            
-            {lockStatus.locked && (
-              <span style={{ fontSize: '11px', color: '#ef4444', display: 'flex', alignItems: 'center', gap: '4px', fontWeight: '600' }}>
-                🔒 Synced to Payroll Engine
-              </span>
-            )}
           </div>
 
           {/* Leave Allocation Form Panel */}
