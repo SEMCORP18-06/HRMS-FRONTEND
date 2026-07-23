@@ -44,7 +44,23 @@ export const api = {
     }),
     signupStatus: () => request('/auth/signup-status'),
     tenants: () => request('/auth/tenants'),
-    me: () => request('/auth/me')
+    me: () => request('/auth/me'),
+    sendVerificationOtp: (email) => request('/auth/send-verification-otp', {
+      method: 'POST',
+      body: { email }
+    }),
+    verifyOtp: (email, otp) => request('/auth/verify-otp', {
+      method: 'POST',
+      body: { email, otp }
+    }),
+    forgotPassword: (email) => request('/auth/forgot-password', {
+      method: 'POST',
+      body: { email }
+    }),
+    resetPassword: (email, otp, new_password) => request('/auth/reset-password', {
+      method: 'POST',
+      body: { email, otp, new_password }
+    }),
   },
   attendance: {
     getToday: () => request('/attendance/today'),

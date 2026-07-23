@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../utils/api';
+import ConfirmModal from './ConfirmModal';
 import { 
   Calendar as CalendarIcon, 
   Plus, 
@@ -21,6 +22,21 @@ import {
 export default function EventPlanner({ activeTenant, user }) {
   const isAdmin = user?.role === 'Admin (HR)';
   const sseRef = React.useRef(null);
+
+  // Confirm Modal state
+  const [confirmConfig, setConfirmConfig] = useState({
+    isOpen: false,
+    title: '',
+    message: '',
+    confirmText: 'Confirm',
+    cancelText: 'Cancel',
+    type: 'info',
+    onConfirm: () => {}
+  });
+
+  const closeConfirm = () => {
+    setConfirmConfig(prev => ({ ...prev, isOpen: false }));
+  };
   
   // Calendar States
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -74,58 +90,102 @@ export default function EventPlanner({ activeTenant, user }) {
     }
   };
 
-  const handleDeleteHoliday = async (id) => {
-    if (!await confirm("Are you sure you want to delete this holiday?")) return;
-    try {
-      await api.holidays.delete(id);
-      setStatus('Holiday deleted successfully.');
-      setTimeout(() => setStatus(''), 3000);
-      setEditingHoliday(null);
-      fetchHolidays();
-    } catch (err) {
-      setError(err.message || 'Failed to delete holiday.');
-    }
+  const handleDeleteHoliday = (id, holidayName = 'this holiday') => {
+    setConfirmConfig({
+      isOpen: true,
+      title: 'Delete Holiday',
+      message: `Are you sure you want to delete ${holidayName} from the holiday calendar?`,
+      confirmText: 'Delete Holiday',
+      type: 'danger',
+      onConfirm: async () => {
+        closeConfirm();
+        try {
+          await api.holidays.delete(id);
+          setStatus('Holiday deleted successfully.');
+          setTimeout(() => setStatus(''), 3000);
+          setEditingHoliday(null);
+          fetchHolidays();
+        } catch (err) {
+          setError(err.message || 'Failed to delete holiday.');
+        }
+      },
+      onCancel: closeConfirm
+    });
   };
 
-  const handleCreateHoliday = async (e) => {
+  const handleCreateHoliday = (e) => {
     e.preventDefault();
     if (!newHolidayName || !addingHolidayDate) return;
-    try {
-      await api.holidays.create({
-        name: newHolidayName,
-        date: addingHolidayDate,
-        type: newHolidayType
-      });
-      setStatus('Holiday successfully added.');
-      setTimeout(() => setStatus(''), 3000);
-      setAddingHolidayDate('');
-      setNewHolidayName('');
-      fetchHolidays();
-    } catch (err) {
-      setError(err.message || 'Failed to add holiday.');
-    }
+
+    setConfirmConfig({
+      isOpen: true,
+      title: 'Add New Holiday',
+      message: `Are you sure you want to add holiday "${newHolidayName}" on ${addingHolidayDate}?`,
+      confirmText: 'Add Holiday',
+      type: 'info',
+      onConfirm: async () => {
+        closeConfirm();
+        try {
+          await api.holidays.create({
+            name: newHolidayName,
+            date: addingHolidayDate,
+            type: newHolidayType
+          });
+          setStatus('Holiday successfully added.');
+          setTimeout(() => setStatus(''), 3000);
+          setAddingHolidayDate('');
+          setNewHolidayName('');
+          fetchHolidays();
+        } catch (err) {
+          setError(err.message || 'Failed to add holiday.');
+        }
+      },
+      onCancel: closeConfirm
+    });
   };
 
-  const handleArchiveEvent = async (id) => {
-    try {
-      await api.events.archive(id);
-      setStatus('Reminder successfully archived.');
-      setTimeout(() => setStatus(''), 3000);
-      fetchEvents();
-    } catch (err) {
-      setError(err.message || 'Failed to archive reminder.');
-    }
+  const handleArchiveEvent = (id, eventTitle = 'this event') => {
+    setConfirmConfig({
+      isOpen: true,
+      title: 'Archive Corporate Event',
+      message: `Are you sure you want to archive "${eventTitle}"?`,
+      confirmText: 'Archive Event',
+      type: 'warning',
+      onConfirm: async () => {
+        closeConfirm();
+        try {
+          await api.events.archive(id);
+          setStatus('Reminder successfully archived.');
+          setTimeout(() => setStatus(''), 3000);
+          fetchEvents();
+        } catch (err) {
+          setError(err.message || 'Failed to archive reminder.');
+        }
+      },
+      onCancel: closeConfirm
+    });
   };
 
-  const handleDeleteEvent = async (id) => {
-    try {
-      await api.events.delete(id);
-      setStatus('Reminder deleted forever.');
-      setTimeout(() => setStatus(''), 3000);
-      fetchEvents();
-    } catch (err) {
-      setError(err.message || 'Failed to delete reminder.');
-    }
+  const handleDeleteEvent = (id, eventTitle = 'this event') => {
+    setConfirmConfig({
+      isOpen: true,
+      title: 'Permanently Delete Event',
+      message: `WARNING: Are you sure you want to permanently delete "${eventTitle}"? This cannot be undone.`,
+      confirmText: 'Permanently Delete',
+      type: 'danger',
+      onConfirm: async () => {
+        closeConfirm();
+        try {
+          await api.events.delete(id);
+          setStatus('Reminder deleted forever.');
+          setTimeout(() => setStatus(''), 3000);
+          fetchEvents();
+        } catch (err) {
+          setError(err.message || 'Failed to delete reminder.');
+        }
+      },
+      onCancel: closeConfirm
+    });
   };
 
   useEffect(() => {
@@ -252,7 +312,7 @@ export default function EventPlanner({ activeTenant, user }) {
   };
 
   // Handle Event Creation
-  const handleCreateEvent = async (e) => {
+  const handleCreateEvent = (e) => {
     e.preventDefault();
     if (!title || !eventDate || !eventTime) {
       setError('Please fill in Event Title, Date, and Time.');
@@ -263,41 +323,52 @@ export default function EventPlanner({ activeTenant, user }) {
       return;
     }
 
-    setLoading(true);
-    setError('');
-    setStatus('');
+    setConfirmConfig({
+      isOpen: true,
+      title: 'Schedule Corporate Event',
+      message: `Are you sure you want to schedule "${title}" on ${eventDate} at ${eventTime} for ${selectedEmployees.length} employee(s)?`,
+      confirmText: 'Schedule Event',
+      type: 'info',
+      onConfirm: async () => {
+        closeConfirm();
+        setLoading(true);
+        setError('');
+        setStatus('');
 
-    const start_time = `${eventDate}T${eventTime}`;
-    const attendees = selectedEmployees.map(emp => ({
-      id: emp.id,
-      name: emp.name,
-      email: emp.email,
-      personal_email: emp.personal_email
-    }));
+        const start_time = `${eventDate}T${eventTime}`;
+        const attendees = selectedEmployees.map(emp => ({
+          id: emp.id,
+          name: emp.name,
+          email: emp.email,
+          personal_email: emp.personal_email
+        }));
 
-    try {
-      await api.events.create({
-        title,
-        description,
-        start_time,
-        location,
-        attendees
-      });
+        try {
+          await api.events.create({
+            title,
+            description,
+            start_time,
+            location,
+            attendees
+          });
 
-      setTitle('');
-      setDescription('');
-      setEventDate('');
-      setEventTime('');
-      setLocation('');
-      setSelectedEmployees([]);
-      setStatus('Success! Event created & 4 reminders queued.');
-      setTimeout(() => setStatus(''), 5000);
-      fetchEvents();
-    } catch (err) {
-      setError(err.message || 'Failed to create event.');
-    } finally {
-      setLoading(false);
-    }
+          setTitle('');
+          setDescription('');
+          setEventDate('');
+          setEventTime('');
+          setLocation('');
+          setSelectedEmployees([]);
+          setStatus('Success! Event created & reminders queued.');
+          setTimeout(() => setStatus(''), 5000);
+          fetchEvents();
+        } catch (err) {
+          setError(err.message || 'Failed to create event.');
+        } finally {
+          setLoading(false);
+        }
+      },
+      onCancel: closeConfirm
+    });
   };
 
   // Calendar Helpers
@@ -1394,6 +1465,7 @@ function EmployeeEventView({
           </div>
         </div>
       </div>
+      <ConfirmModal {...confirmConfig} />
     </div>
   );
 }

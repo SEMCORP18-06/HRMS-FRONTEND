@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../utils/api';
+import ConfirmModal from './ConfirmModal';
 import { Gift, Send, Calendar, ChevronLeft, ChevronRight, User, Mail, Briefcase, Award, CheckCircle, Info } from 'lucide-react';
 
 export default function Celebrations() {
@@ -11,6 +12,21 @@ export default function Celebrations() {
   // Calendar states
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDay, setSelectedDay] = useState(null); // day number
+
+  // Confirm Modal state
+  const [confirmConfig, setConfirmConfig] = useState({
+    isOpen: false,
+    title: '',
+    message: '',
+    confirmText: 'Confirm',
+    cancelText: 'Cancel',
+    type: 'info',
+    onConfirm: () => {}
+  });
+
+  const closeConfirm = () => {
+    setConfirmConfig(prev => ({ ...prev, isOpen: false }));
+  };
 
   useEffect(() => {
     fetchMatches();
@@ -38,16 +54,27 @@ export default function Celebrations() {
     }
   };
 
-  const handleSendCelebration = async (employeeId, type) => {
-    try {
-      setActionStatus(`Sending ${type} greetings...`);
-      await api.celebrations.send(employeeId, type);
-      setActionStatus(`Greetings sent successfully!`);
-      setTimeout(() => setActionStatus(''), 3000);
-      fetchMatches();
-    } catch (err) {
-      setActionStatus(`Failed to send: ${err.message}`);
-    }
+  const handleSendCelebration = (employeeId, type, empName = 'Employee') => {
+    setConfirmConfig({
+      isOpen: true,
+      title: `Send ${type} Greetings`,
+      message: `Are you sure you want to send official ${type.toLowerCase()} wishes to ${empName}? This will email greetings and broadcast to colleagues.`,
+      confirmText: 'Send Greetings',
+      type: 'info',
+      onConfirm: async () => {
+        closeConfirm();
+        try {
+          setActionStatus(`Sending ${type} greetings...`);
+          await api.celebrations.send(employeeId, type);
+          setActionStatus(`Greetings sent successfully!`);
+          setTimeout(() => setActionStatus(''), 3000);
+          fetchMatches();
+        } catch (err) {
+          setActionStatus(`Failed to send: ${err.message}`);
+        }
+      },
+      onCancel: closeConfirm
+    });
   };
   
   const getOrdinal = (n) => {
@@ -546,10 +573,11 @@ export default function Celebrations() {
           <CheckCircle size={18} style={{ color: '#10b981' }} />
           Background Automation Status
         </h4>
-        <p style={{ fontSize: '19px', color: 'var(--text-secondary)', lineHeight: '1.5' }}>
+        <p style={{ fontSize: '15px', color: 'var(--text-secondary)', lineHeight: '1.5' }}>
           The celebrations scheduler is active. Every day at 10:30 AM, the background daemon checks the active employee roster, identifies all birthday and work anniversary matches, and automatically dispatches individual email wishes, as well as broadcasts to all other active colleagues (excluding the celebrant) with department and designation details, from the HR mailbox (<strong style={{ color: 'var(--brand-blue)' }}>enquiry@semcogroups.com</strong>).
         </p>
       </div>
+      <ConfirmModal {...confirmConfig} />
     </div>
   );
 }

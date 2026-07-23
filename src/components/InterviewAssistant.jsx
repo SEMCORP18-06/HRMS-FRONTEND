@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../utils/api';
+import ConfirmModal from './ConfirmModal';
 import { Clock, Plus, Link } from 'lucide-react';
 
 export default function InterviewAssistant() {
@@ -10,6 +11,21 @@ export default function InterviewAssistant() {
   const [jdTitle, setJdTitle] = useState('Senior Full Stack Developer');
   const [status, setStatus] = useState('');
   const [loading, setLoading] = useState(false);
+
+  // Confirm Modal state
+  const [confirmConfig, setConfirmConfig] = useState({
+    isOpen: false,
+    title: '',
+    message: '',
+    confirmText: 'Confirm',
+    cancelText: 'Cancel',
+    type: 'info',
+    onConfirm: () => {}
+  });
+
+  const closeConfirm = () => {
+    setConfirmConfig(prev => ({ ...prev, isOpen: false }));
+  };
 
   useEffect(() => {
     fetchInterviews();
@@ -24,32 +40,43 @@ export default function InterviewAssistant() {
     }
   };
 
-  const handleSchedule = async (e) => {
+  const handleSchedule = (e) => {
     e.preventDefault();
     if (!candidateName || !candidateEmail || !interviewTime) return;
-    
-    setLoading(true);
-    setStatus('Generating meeting room, compiling JD document, and dispatching calendar invite...');
-    
-    try {
-      await api.interviews.create({
-        candidate_name: candidateName,
-        candidate_email: candidateEmail,
-        interview_time: interviewTime,
-        jd_title: jdTitle
-      });
-      
-      setCandidateName('');
-      setCandidateEmail('');
-      setInterviewTime('');
-      setStatus('Interview scheduled and invitation dispatched successfully!');
-      setTimeout(() => setStatus(''), 4000);
-      fetchInterviews();
-    } catch (err) {
-      setStatus(`Scheduling failed: ${err.message}`);
-    } finally {
-      setLoading(false);
-    }
+
+    setConfirmConfig({
+      isOpen: true,
+      title: 'Schedule Interview',
+      message: `Are you sure you want to schedule an interview with ${candidateName} (${candidateEmail}) for ${jdTitle}?`,
+      confirmText: 'Schedule & Send Invite',
+      type: 'info',
+      onConfirm: async () => {
+        closeConfirm();
+        setLoading(true);
+        setStatus('Generating meeting room, compiling JD document, and dispatching calendar invite...');
+        
+        try {
+          await api.interviews.create({
+            candidate_name: candidateName,
+            candidate_email: candidateEmail,
+            interview_time: interviewTime,
+            jd_title: jdTitle
+          });
+          
+          setCandidateName('');
+          setCandidateEmail('');
+          setInterviewTime('');
+          setStatus('Interview scheduled and invitation dispatched successfully!');
+          setTimeout(() => setStatus(''), 4000);
+          fetchInterviews();
+        } catch (err) {
+          setStatus(`Scheduling failed: ${err.message}`);
+        } finally {
+          setLoading(false);
+        }
+      },
+      onCancel: closeConfirm
+    });
   };
 
   return (
@@ -167,10 +194,9 @@ export default function InterviewAssistant() {
                   })}
                 </tbody>
               </table>
-            </div>
-          )}
         </div>
       </div>
+      <ConfirmModal {...confirmConfig} />
     </div>
   );
 }

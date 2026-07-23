@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { api } from '../utils/api';
+import ConfirmModal from './ConfirmModal';
 import {
   BookOpen, Library, MessageSquare, Upload, Trash2, Eye, X,
   Plus, Users, ChevronDown, ChevronUp, Check, Info, Send,
@@ -98,6 +99,21 @@ export default function LMSClub({ user }) {
 
   const [activeTab, setActiveTab] = useState('elibrary');
 
+  // Confirm Modal state
+  const [confirmConfig, setConfirmConfig] = useState({
+    isOpen: false,
+    title: '',
+    message: '',
+    confirmText: 'Confirm',
+    cancelText: 'Cancel',
+    type: 'info',
+    onConfirm: () => {}
+  });
+
+  const closeConfirm = () => {
+    setConfirmConfig(prev => ({ ...prev, isOpen: false }));
+  };
+
   // ── E-Library State
   const [elibraryTab, setElibraryTab] = useState('documents'); // 'documents' or 'links'
   const [files, setFiles] = useState([]);
@@ -153,69 +169,113 @@ export default function LMSClub({ user }) {
     } catch (err) { console.error(err); }
   };
 
-  const handleUpload = async (e) => {
+  const handleUpload = (e) => {
     e.preventDefault();
     if (!uploadFile) { showError('Please select a file to upload.'); return; }
     const ext = uploadFile.name.split('.').pop().toLowerCase();
     if (!['pdf', 'xlsx', 'docx'].includes(ext)) { showError('Only PDF, Excel, or Word files are allowed.'); return; }
-    setUploading(true);
-    try {
-      const fd = new FormData();
-      fd.append('file', uploadFile);
-      fd.append('title', uploadTitle || uploadFile.name);
-      fd.append('description', uploadDesc);
-      await api.elibrary.upload(fd);
-      setUploadFile(null);
-      setUploadTitle('');
-      setUploadDesc('');
-      if (fileInputRef.current) fileInputRef.current.value = '';
-      showStatus('File uploaded successfully!');
-      fetchFiles();
-    } catch (err) {
-      showError(err.message || 'Upload failed.');
-    } finally {
-      setUploading(false);
-    }
+
+    setConfirmConfig({
+      isOpen: true,
+      title: 'Upload E-Library Document',
+      message: `Are you sure you want to upload "${uploadTitle || uploadFile.name}" to the central E-Library?`,
+      confirmText: 'Upload Document',
+      type: 'info',
+      onConfirm: async () => {
+        closeConfirm();
+        setUploading(true);
+        try {
+          const fd = new FormData();
+          fd.append('file', uploadFile);
+          fd.append('title', uploadTitle || uploadFile.name);
+          fd.append('description', uploadDesc);
+          await api.elibrary.upload(fd);
+          setUploadFile(null);
+          setUploadTitle('');
+          setUploadDesc('');
+          if (fileInputRef.current) fileInputRef.current.value = '';
+          showStatus('File uploaded successfully!');
+          fetchFiles();
+        } catch (err) {
+          showError(err.message || 'Upload failed.');
+        } finally {
+          setUploading(false);
+        }
+      },
+      onCancel: closeConfirm
+    });
   };
 
-  const handleDeleteFile = async (fileId) => {
-    if (!await confirm('Permanently delete this file?')) return;
-    try {
-      await api.elibrary.delete(fileId);
-      showStatus('File deleted.');
-      fetchFiles();
-    } catch (err) {
-      showError(err.message || 'Delete failed.');
-    }
+  const handleDeleteFile = (fileId) => {
+    setConfirmConfig({
+      isOpen: true,
+      title: 'Delete E-Library File',
+      message: 'Are you sure you want to permanently delete this file from E-Library?',
+      confirmText: 'Delete File',
+      type: 'danger',
+      onConfirm: async () => {
+        closeConfirm();
+        try {
+          await api.elibrary.delete(fileId);
+          showStatus('File deleted.');
+          fetchFiles();
+        } catch (err) {
+          showError(err.message || 'Delete failed.');
+        }
+      },
+      onCancel: closeConfirm
+    });
   };
 
-  const handleCreateLink = async (e) => {
+  const handleCreateLink = (e) => {
     e.preventDefault();
     if (!linkTitle.trim() || !linkUrl.trim()) { showError('Title and URL are required.'); return; }
-    setUploading(true);
-    try {
-      await api.elibrary.createLink({ title: linkTitle, url: linkUrl, description: linkDesc });
-      setLinkTitle('');
-      setLinkUrl('');
-      setLinkDesc('');
-      showStatus('Course link added successfully!');
-      fetchLinks();
-    } catch (err) {
-      showError(err.message || 'Failed to add link.');
-    } finally {
-      setUploading(false);
-    }
+
+    setConfirmConfig({
+      isOpen: true,
+      title: 'Add External Course Link',
+      message: `Are you sure you want to add course link "${linkTitle}"?`,
+      confirmText: 'Add Link',
+      type: 'info',
+      onConfirm: async () => {
+        closeConfirm();
+        setUploading(true);
+        try {
+          await api.elibrary.createLink({ title: linkTitle, url: linkUrl, description: linkDesc });
+          setLinkTitle('');
+          setLinkUrl('');
+          setLinkDesc('');
+          showStatus('Course link added successfully!');
+          fetchLinks();
+        } catch (err) {
+          showError(err.message || 'Failed to add link.');
+        } finally {
+          setUploading(false);
+        }
+      },
+      onCancel: closeConfirm
+    });
   };
 
-  const handleDeleteLink = async (linkId) => {
-    if (!await confirm('Permanently delete this link?')) return;
-    try {
-      await api.elibrary.deleteLink(linkId);
-      showStatus('Link deleted.');
-      fetchLinks();
-    } catch (err) {
-      showError(err.message || 'Delete failed.');
-    }
+  const handleDeleteLink = (linkId) => {
+    setConfirmConfig({
+      isOpen: true,
+      title: 'Delete Course Link',
+      message: 'Are you sure you want to permanently delete this course link?',
+      confirmText: 'Delete Link',
+      type: 'danger',
+      onConfirm: async () => {
+        closeConfirm();
+        try {
+          await api.elibrary.deleteLink(linkId);
+          showStatus('Link deleted.');
+          fetchLinks();
+        } catch (err) {
+          showError(err.message || 'Delete failed.');
+        }
+      },
+      onCancel: closeConfirm
+    });
   };
 
   // ── Discussions handlers ────────────────────────────────────────────────────
@@ -254,32 +314,54 @@ export default function LMSClub({ user }) {
     });
   };
 
-  const handleCreateThread = async (e) => {
+  const handleCreateThread = (e) => {
     e.preventDefault();
     if (!threadTitle.trim()) { showError('Please enter a thread title.'); return; }
     if (!threadVenue.trim()) { showError('Please enter a venue where the discussion will be held.'); return; }
-    setLoading(true);
-    try {
-      await api.discussions.create({ title: threadTitle, body: threadBody, venue: threadVenue, invited_ids: invitedIds });
-      setThreadTitle(''); setThreadBody(''); setThreadVenue(''); setInvitedIds([]);
-      showStatus('Discussion created and invitations sent!');
-      fetchThreads();
-    } catch (err) {
-      showError(err.message || 'Failed to create discussion.');
-    } finally {
-      setLoading(false);
-    }
+
+    setConfirmConfig({
+      isOpen: true,
+      title: 'Create Discussion Thread',
+      message: `Are you sure you want to post discussion "${threadTitle}" and send invitations?`,
+      confirmText: 'Create Discussion',
+      type: 'info',
+      onConfirm: async () => {
+        closeConfirm();
+        setLoading(true);
+        try {
+          await api.discussions.create({ title: threadTitle, body: threadBody, venue: threadVenue, invited_ids: invitedIds });
+          setThreadTitle(''); setThreadBody(''); setThreadVenue(''); setInvitedIds([]);
+          showStatus('Discussion created and invitations sent!');
+          fetchThreads();
+        } catch (err) {
+          showError(err.message || 'Failed to create discussion.');
+        } finally {
+          setLoading(false);
+        }
+      },
+      onCancel: closeConfirm
+    });
   };
 
-  const handleDeleteThread = async (threadId) => {
-    if (!await confirm('Delete this discussion?')) return;
-    try {
-      await api.discussions.delete(threadId);
-      showStatus('Discussion deleted.');
-      fetchThreads();
-    } catch (err) {
-      showError(err.message || 'Delete failed.');
-    }
+  const handleDeleteThread = (threadId) => {
+    setConfirmConfig({
+      isOpen: true,
+      title: 'Delete Discussion Thread',
+      message: 'Are you sure you want to delete this discussion thread?',
+      confirmText: 'Delete Thread',
+      type: 'danger',
+      onConfirm: async () => {
+        closeConfirm();
+        try {
+          await api.discussions.delete(threadId);
+          showStatus('Discussion deleted.');
+          fetchThreads();
+        } catch (err) {
+          showError(err.message || 'Delete failed.');
+        }
+      },
+      onCancel: closeConfirm
+    });
   };
 
   // ── Render ──────────────────────────────────────────────────────────────────
@@ -742,6 +824,7 @@ export default function LMSClub({ user }) {
 
       {/* Preview Modal */}
       {previewFile && <PreviewModal file={previewFile} onClose={() => setPreviewFile(null)} />}
+      <ConfirmModal {...confirmConfig} />
     </div>
   );
 }

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../utils/api';
+import ConfirmModal from './ConfirmModal';
 import { Quote, Send, Plus, Calendar, User, Clock, CheckCircle, AlertCircle, ChevronLeft, ChevronRight, Search, Mail } from 'lucide-react';
 
 const monthNames = [
@@ -16,6 +17,21 @@ export default function DailyPulse() {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedPulse, setSelectedPulse] = useState(null);
   const [recipientQuery, setRecipientQuery] = useState('');
+
+  // Confirm Modal state
+  const [confirmConfig, setConfirmConfig] = useState({
+    isOpen: false,
+    title: '',
+    message: '',
+    confirmText: 'Confirm',
+    cancelText: 'Cancel',
+    type: 'info',
+    onConfirm: () => {}
+  });
+
+  const closeConfirm = () => {
+    setConfirmConfig(prev => ({ ...prev, isOpen: false }));
+  };
 
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth();
@@ -43,16 +59,27 @@ export default function DailyPulse() {
     }
   };
 
-  const handleTriggerDailyPulse = async () => {
-    try {
-      setStatus('Dispatching Daily Pulse quotes to active corporate channels...');
-      const response = await api.dailyPulse.trigger();
-      setStatus(response.message || 'Daily Pulse dispatched successfully!');
-      setTimeout(() => setStatus(''), 4000);
-      fetchSchedule();
-    } catch (err) {
-      setStatus(`Trigger failed: ${err.message}`);
-    }
+  const handleTriggerDailyPulse = () => {
+    setConfirmConfig({
+      isOpen: true,
+      title: 'Dispatch Daily Pulse Broadcast',
+      message: 'Are you sure you want to manually trigger and broadcast today\'s motivational pulse email to all active corporate channels?',
+      confirmText: 'Dispatch Daily Pulse',
+      type: 'info',
+      onConfirm: async () => {
+        closeConfirm();
+        try {
+          setStatus('Dispatching Daily Pulse quotes to active corporate channels...');
+          const response = await api.dailyPulse.trigger();
+          setStatus(response.message || 'Daily Pulse dispatched successfully!');
+          setTimeout(() => setStatus(''), 4000);
+          fetchSchedule();
+        } catch (err) {
+          setStatus(`Trigger failed: ${err.message}`);
+        }
+      },
+      onCancel: closeConfirm
+    });
   };
 
   // Calendar calculations
@@ -401,8 +428,8 @@ export default function DailyPulse() {
           )}
 
         </div>
-
       </div>
+      <ConfirmModal {...confirmConfig} />
     </div>
   );
 }

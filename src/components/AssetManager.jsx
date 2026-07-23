@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../utils/api';
+import ConfirmModal from './ConfirmModal';
 import { Cpu, Plus, Laptop, User, Calendar, Tag, ChevronDown, ChevronUp, CheckCircle, AlertCircle, ShoppingBag } from 'lucide-react';
 
 export default function AssetManager({ user }) {
@@ -11,6 +12,21 @@ export default function AssetManager({ user }) {
   const [serialNumber, setSerialNumber] = useState('');
   const [totalQuantity, setTotalQuantity] = useState('1');
   const [category, setCategory] = useState('');
+
+  // Confirm Modal state
+  const [confirmConfig, setConfirmConfig] = useState({
+    isOpen: false,
+    title: '',
+    message: '',
+    confirmText: 'Confirm',
+    cancelText: 'Cancel',
+    type: 'info',
+    onConfirm: () => {}
+  });
+
+  const closeConfirm = () => {
+    setConfirmConfig(prev => ({ ...prev, isOpen: false }));
+  };
   
   // UI Interaction States
   const [expandedAssetId, setExpandedAssetId] = useState(null);
@@ -47,75 +63,110 @@ export default function AssetManager({ user }) {
     }
   };
 
-  const handleAddAsset = async (e) => {
+  const handleAddAsset = (e) => {
     e.preventDefault();
     if (!hardwareName || !serialNumber) return;
-    setLoading(true);
-    setError('');
-    setStatus('');
-    try {
-      await api.assets.create({ 
-        hardware_name: hardwareName, 
-        serial_number: serialNumber,
-        category: category || 'General',
-        total_quantity: parseInt(totalQuantity) || 1
-      });
-      setHardwareName('');
-      setSerialNumber('');
-      setTotalQuantity('1');
-      setCategory('');
-      setStatus('Device successfully registered in inventory!');
-      setTimeout(() => setStatus(''), 4000);
-      fetchAssets();
-    } catch (err) {
-      setError(`Failed to register hardware: ${err.message}`);
-    } finally {
-      setLoading(false);
-    }
+
+    setConfirmConfig({
+      isOpen: true,
+      title: 'Register Asset Hardware',
+      message: `Are you sure you want to register "${hardwareName}" (S/N: ${serialNumber}, Qty: ${totalQuantity}) into inventory?`,
+      confirmText: 'Register Hardware',
+      type: 'info',
+      onConfirm: async () => {
+        closeConfirm();
+        setLoading(true);
+        setError('');
+        setStatus('');
+        try {
+          await api.assets.create({ 
+            hardware_name: hardwareName, 
+            serial_number: serialNumber,
+            category: category || 'General',
+            total_quantity: parseInt(totalQuantity) || 1
+          });
+          setHardwareName('');
+          setSerialNumber('');
+          setTotalQuantity('1');
+          setCategory('');
+          setStatus('Device successfully registered in inventory!');
+          setTimeout(() => setStatus(''), 4000);
+          fetchAssets();
+        } catch (err) {
+          setError(`Failed to register hardware: ${err.message}`);
+        } finally {
+          setLoading(false);
+        }
+      },
+      onCancel: closeConfirm
+    });
   };
 
-  const handleCheckout = async (assetId) => {
+  const handleCheckout = (assetId) => {
     const empId = selectedEmployees[assetId];
     const qty = checkoutQuantities[assetId] || 1;
     
     if (!empId) {
-      await alert("Please select an employee first.");
+      alert("Please select an employee first.");
       return;
     }
     
-    setLoading(true);
-    setStatus('Processing checkout and dispatching receipt email...');
-    setError('');
-    try {
-      await api.assets.checkout(assetId, empId, 14, parseInt(qty));
-      setStatus('Hardware successfully checked out and assigned.');
-      setTimeout(() => setStatus(''), 4000);
-      
-      // Reset state for this asset
-      setSelectedEmployees(prev => ({ ...prev, [assetId]: '' }));
-      setCheckoutQuantities(prev => ({ ...prev, [assetId]: 1 }));
-      fetchAssets();
-    } catch (err) {
-      setError(`Checkout failed: ${err.message}`);
-    } finally {
-      setLoading(false);
-    }
+    const empObj = employees.find(e => e.id === empId);
+
+    setConfirmConfig({
+      isOpen: true,
+      title: 'Checkout Asset Hardware',
+      message: `Are you sure you want to checkout and assign hardware to ${empObj ? empObj.name : 'selected employee'}?`,
+      confirmText: 'Checkout Asset',
+      type: 'info',
+      onConfirm: async () => {
+        closeConfirm();
+        setLoading(true);
+        setStatus('Processing checkout and dispatching receipt email...');
+        setError('');
+        try {
+          await api.assets.checkout(assetId, empId, 14, parseInt(qty));
+          setStatus('Hardware successfully checked out and assigned.');
+          setTimeout(() => setStatus(''), 4000);
+          
+          setSelectedEmployees(prev => ({ ...prev, [assetId]: '' }));
+          setCheckoutQuantities(prev => ({ ...prev, [assetId]: 1 }));
+          fetchAssets();
+        } catch (err) {
+          setError(`Checkout failed: ${err.message}`);
+        } finally {
+          setLoading(false);
+        }
+      },
+      onCancel: closeConfirm
+    });
   };
 
-  const handleCheckin = async (assetId, checkoutId) => {
-    setLoading(true);
-    setStatus('Returning device and releasing inventory...');
-    setError('');
-    try {
-      await api.assets.checkin(assetId, checkoutId);
-      setStatus('Hardware returned and inventory updated.');
-      setTimeout(() => setStatus(''), 4000);
-      fetchAssets();
-    } catch (err) {
-      setError(`Return failed: ${err.message}`);
-    } finally {
-      setLoading(false);
-    }
+  const handleCheckin = (assetId, checkoutId) => {
+    setConfirmConfig({
+      isOpen: true,
+      title: 'Check-in Returned Asset',
+      message: 'Are you sure you want to check-in this returned device and release it back to inventory?',
+      confirmText: 'Check-in Device',
+      type: 'info',
+      onConfirm: async () => {
+        closeConfirm();
+        setLoading(true);
+        setStatus('Returning device and releasing inventory...');
+        setError('');
+        try {
+          await api.assets.checkin(assetId, checkoutId);
+          setStatus('Hardware returned and inventory updated.');
+          setTimeout(() => setStatus(''), 4000);
+          fetchAssets();
+        } catch (err) {
+          setError(`Return failed: ${err.message}`);
+        } finally {
+          setLoading(false);
+        }
+      },
+      onCancel: closeConfirm
+    });
   };
 
   const toggleExpandAsset = (assetId) => {
@@ -595,6 +646,7 @@ export default function AssetManager({ user }) {
           )}
         </div>
       )}
+      <ConfirmModal {...confirmConfig} />
     </div>
   );
 }

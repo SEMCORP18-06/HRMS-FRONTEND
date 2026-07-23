@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../utils/api';
+import ConfirmModal from './ConfirmModal';
 import { 
   Clock, Calendar, User, CheckCircle, AlertTriangle, ChevronLeft, ChevronRight, List, Grid, ShieldAlert, Lock, Unlock, Leaf 
 } from 'lucide-react';
@@ -23,6 +24,21 @@ export default function Attendance({ activeTenant, user }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [myMonthRecords, setMyMonthRecords] = useState([]);
+
+  // Confirm Modal state
+  const [confirmConfig, setConfirmConfig] = useState({
+    isOpen: false,
+    title: '',
+    message: '',
+    confirmText: 'Confirm',
+    cancelText: 'Cancel',
+    type: 'info',
+    onConfirm: () => {}
+  });
+
+  const closeConfirm = () => {
+    setConfirmConfig(prev => ({ ...prev, isOpen: false }));
+  };
   
   // State for Admin
   const [currentYear, setCurrentYear] = useState(new Date().getFullYear());
@@ -94,63 +110,91 @@ export default function Attendance({ activeTenant, user }) {
       console.error('Failed to load lock status:', err);
     }
   };
-  const handleSaveLeaveAllocation = async () => {
-    setAllocSaving(true);
-    try {
-      const monthStr = String(currentMonth + 1).padStart(2, '0');
-      const data = {
-        employee_id: allocTarget,
-        year: currentYear,
-        month: monthStr,
-        wo: Number(allocWO),
-        sl: Number(allocSL),
-        cl: Number(allocCL),
-        pl: Number(allocPL)
-      };
-      await api.attendance.saveLeaveAllocation(data);
-      alert('Leave allocations successfully saved!');
-      setShowAllocPanel(false);
-    } catch (err) {
-      alert(err.message || 'Failed to save leave allocation.');
-    } finally {
-      setAllocSaving(false);
-    }
+  const handleSaveLeaveAllocation = () => {
+    const targetEmp = employees.find(e => e.id === allocTarget);
+    setConfirmConfig({
+      isOpen: true,
+      title: 'Confirm Save Leave Allocations',
+      message: `Are you sure you want to save leave allocations for ${targetEmp ? targetEmp.name : 'this employee'}?\n\nAllocated: WO: ${allocWO}, SL: ${allocSL}, CL: ${allocCL}, PL: ${allocPL}`,
+      confirmText: 'Save Allocations',
+      type: 'info',
+      onConfirm: async () => {
+        closeConfirm();
+        setAllocSaving(true);
+        try {
+          const monthStr = String(currentMonth + 1).padStart(2, '0');
+          const data = {
+            employee_id: allocTarget,
+            year: currentYear,
+            month: monthStr,
+            wo: Number(allocWO),
+            sl: Number(allocSL),
+            cl: Number(allocCL),
+            pl: Number(allocPL)
+          };
+          await api.attendance.saveLeaveAllocation(data);
+          alert('Leave allocations successfully saved!');
+          setShowAllocPanel(false);
+        } catch (err) {
+          alert(err.message || 'Failed to save leave allocation.');
+        } finally {
+          setAllocSaving(false);
+        }
+      },
+      onCancel: closeConfirm
+    });
   };
 
-  const handleLockMonth = async () => {
+  const handleLockMonth = () => {
     const monthStr = String(currentMonth + 1).padStart(2, '0');
     const monthName = new Date(currentYear, currentMonth).toLocaleString('default', { month: 'long', year: 'numeric' });
-    const confirmLock = window.confirm(`Are you sure you want to lock attendance for ${monthName}? This will freeze edits for employees and managers and sync data directly to the Payroll Engine.`);
-    if (!confirmLock) return;
-
-    setLockLoading(true);
-    try {
-      const res = await api.attendance.lockMonth(currentYear, monthStr);
-      alert(res.message || 'Month attendance successfully locked and synced!');
-      fetchLockStatus();
-    } catch (err) {
-      alert(err.message || 'Failed to lock month attendance.');
-    } finally {
-      setLockLoading(false);
-    }
+    setConfirmConfig({
+      isOpen: true,
+      title: 'Lock Month Attendance',
+      message: `Are you sure you want to lock attendance logs for ${monthName}?\n\nThis will freeze attendance edits for employees and sync records to the Payroll Engine.`,
+      confirmText: 'Yes, Lock Month',
+      type: 'danger',
+      onConfirm: async () => {
+        closeConfirm();
+        setLockLoading(true);
+        try {
+          const res = await api.attendance.lockMonth(currentYear, monthStr);
+          alert(res.message || 'Month attendance successfully locked and synced!');
+          fetchLockStatus();
+        } catch (err) {
+          alert(err.message || 'Failed to lock month attendance.');
+        } finally {
+          setLockLoading(false);
+        }
+      },
+      onCancel: closeConfirm
+    });
   };
 
-  const handleUnlockMonth = async () => {
+  const handleUnlockMonth = () => {
     const monthStr = String(currentMonth + 1).padStart(2, '0');
     const monthName = new Date(currentYear, currentMonth).toLocaleString('default', { month: 'long', year: 'numeric' });
-    const confirmUnlock = window.confirm(`Are you sure you want to unlock attendance for ${monthName}? This will re-enable attendance edits and submissions.`);
-    if (!confirmUnlock) return;
-
-    setLockLoading(true);
-    try {
-      const res = await api.attendance.unlockMonth(currentYear, monthStr);
-      alert(res.message || 'Month attendance successfully unlocked!');
-      fetchLockStatus();
-    } catch (err) {
-      alert(err.message || 'Failed to unlock month attendance.');
-    } finally {
-      setLockLoading(false);
-    }
+    setConfirmConfig({
+      isOpen: true,
+      title: 'Unlock Month Attendance',
+      message: `Are you sure you want to unlock attendance logs for ${monthName}?\n\nThis will re-enable attendance edits for all employees.`,
+      confirmText: 'Yes, Unlock Month',
+      type: 'warning',
+      onConfirm: async () => {
+        closeConfirm();
+        setLockLoading(true);
+        try {
+          const res = await api.attendance.unlockMonth(currentYear, monthStr);
+          alert(res.message || 'Month attendance successfully unlocked!');
+          fetchLockStatus();
+        } catch (err) {
+          alert(err.message || 'Failed to unlock month attendance.');
+        } finally {
+          setLockLoading(false);
+        }
+      },
+      onCancel: closeConfirm
+    });
   };
 
 
@@ -197,21 +241,96 @@ export default function Attendance({ activeTenant, user }) {
     }
   };
 
-  const handleMarkCheckbox = async (selection) => {
-    if (markedToday.includes(selection)) return;
-    
-    setMarkedToday(prev => [...prev, selection]);
-    setError('');
-    
-    try {
-      const res = await api.attendance.mark(selection);
-      setMarkedToday(res.selections || []);
-      fetchMyMonthData(); // Snappily update calendar view too!
-    } catch (err) {
-      const errMsg = err.message || 'Failed to mark attendance.';
-      setError(errMsg);
-      setMarkedToday(prev => prev.filter(x => x !== selection));
+  const getTimeWindowInfo = () => {
+    if (isAdmin) return { isWindowValid: true, reason: 'Admin Access Override', currentTimeStr: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true }) };
+    if (user?.allow_late_attendance_marking) return { isWindowValid: true, reason: 'Late Marking Permitted by HR Admin', currentTimeStr: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true }) };
+
+    const now = new Date();
+    const hours = now.getHours();
+    const minutes = now.getMinutes();
+    const currentMins = hours * 60 + minutes;
+
+    const startMins = 10 * 60;      // 10:00 AM (600 mins)
+    const endMins = 10 * 60 + 30;   // 10:30 AM (630 mins)
+
+    const currentTimeStr = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true });
+
+    if (currentMins < startMins) {
+      return {
+        isWindowValid: false,
+        currentTimeStr,
+        reason: `Attendance marking opens at 10:00 AM. Current time is ${currentTimeStr}.`
+      };
     }
+
+    if (currentMins > endMins) {
+      return {
+        isWindowValid: false,
+        currentTimeStr,
+        reason: `Attendance window (10:00 AM – 10:30 AM) is closed. Current time is ${currentTimeStr}.`
+      };
+    }
+
+    return { isWindowValid: true, currentTimeStr, reason: 'Attendance Window Open (10:00 AM – 10:30 AM)' };
+  };
+
+  const handleMarkCheckbox = (selection) => {
+    if (markedToday.includes(selection)) return;
+
+    if (lockStatus?.locked === true) {
+      setConfirmConfig({
+        isOpen: true,
+        title: 'Attendance Month Locked',
+        message: 'Attendance logs for this month have been locked and finalized by HR Admin. Selections cannot be modified.',
+        confirmText: 'Understand',
+        cancelText: 'Close',
+        type: 'danger',
+        onConfirm: closeConfirm,
+        onCancel: closeConfirm
+      });
+      return;
+    }
+
+    const windowInfo = getTimeWindowInfo();
+
+    if (!windowInfo.isWindowValid) {
+      setConfirmConfig({
+        isOpen: true,
+        title: 'Attendance Window Closed',
+        message: `Attendance for employees can ONLY be marked between 10:00 AM and 10:30 AM.\n\nCurrent Time: ${windowInfo.currentTimeStr}\nStatus: ${windowInfo.reason}\n\nNo attendance can be marked after 10:30 AM unless permitted by HR Admin.`,
+        confirmText: 'Understand',
+        cancelText: 'Close',
+        type: 'danger',
+        onConfirm: closeConfirm,
+        onCancel: closeConfirm
+      });
+      return;
+    }
+
+    setConfirmConfig({
+      isOpen: true,
+      title: 'Confirm Attendance Status Mark',
+      message: `Are you sure you want to mark today's attendance status as "${selection}"?\n\nTime: ${windowInfo.currentTimeStr}\n\nNote: Selections are saved immediately and cannot be deselected by employee.`,
+      confirmText: `Confirm ${selection}`,
+      cancelText: 'Cancel',
+      type: 'success',
+      onConfirm: async () => {
+        closeConfirm();
+        setMarkedToday(prev => [...prev, selection]);
+        setError('');
+        
+        try {
+          const res = await api.attendance.mark(selection);
+          setMarkedToday(res.selections || []);
+          fetchMyMonthData(); // Snappily update calendar view too!
+        } catch (err) {
+          const errMsg = err.message || 'Failed to mark attendance.';
+          setError(errMsg);
+          setMarkedToday(prev => prev.filter(x => x !== selection));
+        }
+      },
+      onCancel: closeConfirm
+    });
   };
 
   const handlePrevMonth = () => {
@@ -306,21 +425,39 @@ export default function Attendance({ activeTenant, user }) {
     );
   };
 
-  const handleExport = (format) => {
-    const token = localStorage.getItem('hr_token');
-    const monthStr = String(currentMonth + 1).padStart(2, '0');
-    const base = 'https://hrms-backend-gamma.vercel.app';
-    const url = `${base}/api/attendance/admin/export?year=${currentYear}&month=${monthStr}&format=${format}&token=${encodeURIComponent(token)}`;
-    
-    // Direct absolute link click with target='_self'
-    const link = document.createElement('a');
-    link.href = url;
-    link.target = '_self';
-    const extension = format === 'xls' ? 'xlsx' : format === 'word' ? 'docx' : format;
-    link.setAttribute('download', `attendance_masterlist_${currentYear}_${monthStr}.${extension}`);
-    document.body.appendChild(link);
-    link.click();
-    link.parentNode.removeChild(link);
+  const handleExport = async (format) => {
+    try {
+      setLoading(true);
+      const token = localStorage.getItem('hr_token');
+      const monthStr = String(currentMonth + 1).padStart(2, '0');
+      const base = 'https://hrms-backend-gamma.vercel.app';
+      const url = `${base}/api/attendance/admin/export?year=${currentYear}&month=${monthStr}&format=${format}`;
+      
+      const res = await fetch(url, {
+        headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+      });
+
+      if (!res.ok) {
+        throw new Error(`Export failed (${res.status})`);
+      }
+
+      const blob = await res.blob();
+      const blobUrl = URL.createObjectURL(blob);
+      const extension = format === 'xls' ? 'xlsx' : format === 'word' ? 'docx' : format;
+      const fileName = `attendance_masterlist_${currentYear}_${monthStr}.${extension}`;
+
+      const link = document.createElement('a');
+      link.href = blobUrl;
+      link.download = fileName;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      setTimeout(() => URL.revokeObjectURL(blobUrl), 10000);
+    } catch (err) {
+      setError(`Failed to export attendance data: ${err.message}`);
+    } finally {
+      setLoading(false);
+    }
   };
 
   // Render Employee Attendance Checkbox View
@@ -344,6 +481,7 @@ export default function Attendance({ activeTenant, user }) {
     const monthLabel = new Date(currentYear, currentMonth).toLocaleString('default', { month: 'long', year: 'numeric' });
 
     const isLocked = lockStatus?.locked === true;
+    const windowInfo = getTimeWindowInfo();
 
     return (
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 340px', gap: '30px', maxWidth: '1000px', margin: '0 auto', alignItems: 'start' }}>
@@ -357,6 +495,44 @@ export default function Attendance({ activeTenant, user }) {
               <p style={{ fontSize: '13px', color: '#94a3b8', margin: '2px 0 0 0' }}>{todayStr}</p>
             </div>
           </div>
+
+          {/* Time Window Notice Banner */}
+          {!isAdmin && (
+            <div style={{
+              background: windowInfo.isWindowValid ? 'rgba(16, 185, 129, 0.08)' : 'rgba(239, 68, 68, 0.08)',
+              border: windowInfo.isWindowValid ? '1px solid rgba(16, 185, 129, 0.25)' : '1px solid rgba(239, 68, 68, 0.25)',
+              padding: '14px',
+              borderRadius: '12px',
+              marginBottom: '15px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: '10px'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <Clock size={20} style={{ color: windowInfo.isWindowValid ? '#10b981' : '#ef4444' }} />
+                <div>
+                  <div style={{ fontSize: '13px', fontWeight: 'bold', color: windowInfo.isWindowValid ? '#10b981' : '#ef4444' }}>
+                    Attendance Window: 10:00 AM – 10:30 AM
+                  </div>
+                  <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '2px' }}>
+                    {windowInfo.reason}
+                  </div>
+                </div>
+              </div>
+              <span style={{
+                background: windowInfo.isWindowValid ? '#10b981' : '#ef4444',
+                color: '#fff',
+                padding: '4px 10px',
+                borderRadius: '20px',
+                fontSize: '11px',
+                fontWeight: '800',
+                letterSpacing: '0.5px'
+              }}>
+                {windowInfo.isWindowValid ? 'OPEN' : 'CLOSED'}
+              </span>
+            </div>
+          )}
 
           {isLocked && (
             <div style={{ background: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.2)', padding: '12px', borderRadius: '8px', marginBottom: '15px', color: '#ef4444', fontSize: '13px', fontWeight: '500', display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -380,9 +556,15 @@ export default function Attendance({ activeTenant, user }) {
           <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginTop: '20px' }}>
             {STATUS_OPTIONS.map((opt) => {
               const isChecked = markedToday.includes(opt);
+              const isDisabled = isChecked || loading || isLocked || !windowInfo.isWindowValid;
               return (
-                <label 
+                <div 
                   key={opt} 
+                  onClick={() => {
+                    if (!isChecked && !loading) {
+                      handleMarkCheckbox(opt);
+                    }
+                  }}
                   style={{ 
                     display: 'flex', 
                     alignItems: 'center', 
@@ -391,25 +573,24 @@ export default function Attendance({ activeTenant, user }) {
                     background: isChecked ? 'rgba(16, 185, 129, 0.08)' : 'rgba(255, 255, 255, 0.01)', 
                     border: isChecked ? '1px solid #10b981' : '1px solid var(--border-glass)', 
                     borderRadius: '12px',
-                    cursor: isChecked ? 'default' : isLocked ? 'not-allowed' : 'pointer',
+                    cursor: isChecked ? 'default' : 'pointer',
                     transition: 'all 0.2s ease',
-                    opacity: isChecked ? 0.8 : isLocked ? 0.6 : 1
+                    opacity: isChecked ? 0.8 : isDisabled ? 0.6 : 1
                   }}
                 >
                   <span style={{ fontSize: '15px', fontWeight: '600', color: isChecked ? '#10b981' : 'var(--text-primary)' }}>{opt}</span>
                   <input 
                     type="checkbox" 
                     checked={isChecked}
-                    disabled={isChecked || loading || isLocked}
-                    onChange={() => handleMarkCheckbox(opt)}
+                    readOnly
                     style={{ 
                       width: '20px', 
                       height: '20px', 
-                      cursor: isChecked ? 'default' : isLocked ? 'not-allowed' : 'pointer',
+                      pointerEvents: 'none',
                       accentColor: '#10b981'
                     }}
                   />
-                </label>
+                </div>
               );
             })}
           </div>
@@ -934,17 +1115,29 @@ export default function Attendance({ activeTenant, user }) {
                 </div>
                 {!employees.find(e => e.id === selectedEmployeeId)?.allow_late_attendance_marking && (
                   <button 
-                    onClick={async () => {
-                      setLoading(true);
-                      try {
-                        const res = await api.attendance.permitLateAttendance(selectedEmployeeId);
-                        await alert(res.message || 'Late marking permitted successfully!');
-                        fetchAdminData();
-                      } catch (err) {
-                        await alert(err.message || 'Failed to permit late marking.');
-                      } finally {
-                        setLoading(false);
-                      }
+                    onClick={() => {
+                      const empObj = employees.find(e => e.id === selectedEmployeeId);
+                      setConfirmConfig({
+                        isOpen: true,
+                        title: 'Permit Late Attendance',
+                        message: `Are you sure you want to permit late attendance marking for ${empObj ? empObj.name : 'this employee'}?`,
+                        confirmText: 'Yes, Permit Late Marking',
+                        type: 'warning',
+                        onConfirm: async () => {
+                          closeConfirm();
+                          setLoading(true);
+                          try {
+                            const res = await api.attendance.permitLateAttendance(selectedEmployeeId);
+                            await alert(res.message || 'Late marking permitted successfully!');
+                            fetchAdminData();
+                          } catch (err) {
+                            await alert(err.message || 'Failed to permit late marking.');
+                          } finally {
+                            setLoading(false);
+                          }
+                        },
+                        onCancel: closeConfirm
+                      });
                     }}
                     className="sso-btn"
                     style={{ margin: 0, padding: '8px', fontSize: '12px', width: '100%' }}
@@ -953,6 +1146,49 @@ export default function Attendance({ activeTenant, user }) {
                     Permit Late Attendance
                   </button>
                 )}
+                <button
+                  onClick={() => {
+                    setConfirmConfig({
+                      isOpen: true,
+                      title: 'Permit All Late Attendance',
+                      message: 'Are you sure you want to permit late attendance marking for ALL active employees?',
+                      confirmText: 'Yes, Permit All',
+                      type: 'warning',
+                      onConfirm: async () => {
+                        closeConfirm();
+                        setLockLoading(true);
+                        try {
+                          const res = await api.attendance.permitLateAttendanceAll();
+                          alert(res.message || 'Late attendance marking permitted for all active employees.');
+                          fetchAdminData();
+                        } catch (err) {
+                          alert(err.message || 'Failed to permit late attendance marking.');
+                        } finally {
+                          setLockLoading(false);
+                        }
+                      },
+                      onCancel: closeConfirm
+                    });
+                  }}
+                  style={{
+                    background: '#3b82f6',
+                    color: '#fff',
+                    border: 'none',
+                    padding: '6px 12px',
+                    borderRadius: '6px',
+                    fontSize: '12px',
+                    cursor: 'pointer',
+                    fontWeight: 'bold',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '6px',
+                    opacity: lockLoading ? 0.6 : 1,
+                    marginTop: '4px'
+                  }}
+                >
+                  Permit All (Late Mark)
+                </button>
               </div>
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
@@ -982,6 +1218,7 @@ export default function Attendance({ activeTenant, user }) {
   return (
     <div className="attendance-container">
       {isAdmin ? renderAdminView() : renderEmployeeView()}
+      <ConfirmModal {...confirmConfig} />
     </div>
   );
 }

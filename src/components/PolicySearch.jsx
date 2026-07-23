@@ -1,16 +1,33 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../utils/api';
+import ConfirmModal from './ConfirmModal';
 import { Plus, BookOpen, Tag, FileText, CheckCircle } from 'lucide-react';
 
 export default function PolicySearch({ user }) {
   const [policies, setPolicies] = useState([]);
   const [category, setCategory] = useState('');
   const [title, setTitle] = useState('');
+  const [content, setContent] = useState('');
   const [policyFile, setPolicyFile] = useState(null);
   const [status, setStatus] = useState('');
   const [error, setError] = useState('');
   const [selectedPolicyId, setSelectedPolicyId] = useState(null);
   const [selectedCategoryFilter, setSelectedCategoryFilter] = useState('All');
+
+  // Confirm Modal state
+  const [confirmConfig, setConfirmConfig] = useState({
+    isOpen: false,
+    title: '',
+    message: '',
+    confirmText: 'Confirm',
+    cancelText: 'Cancel',
+    type: 'info',
+    onConfirm: () => {}
+  });
+
+  const closeConfirm = () => {
+    setConfirmConfig(prev => ({ ...prev, isOpen: false }));
+  };
 
   const isAdmin = user?.role === 'Admin (HR)';
 
@@ -31,33 +48,176 @@ export default function PolicySearch({ user }) {
     }
   };
 
-  const handleCreatePolicy = async (e) => {
+  const handleCreatePolicy = (e) => {
     e.preventDefault();
-    if (!title || !category || !policyFile) return;
-    try {
-      const formData = new FormData();
-      formData.append('category', category.trim());
-      formData.append('title', title.trim());
-      formData.append('content', '');
-      formData.append('file', policyFile);
-
-      const newPolicy = await api.policies.create(formData);
-      setTitle('');
-      setCategory('');
-      setPolicyFile(null);
-      const fileInput = document.getElementById('policy-file-input');
-      if (fileInput) fileInput.value = '';
-
-      setStatus('Policy added to Knowledge Base successfully!');
-      setTimeout(() => setStatus(''), 3000);
-      fetchPolicies();
-      if (newPolicy && newPolicy.id) {
-        setSelectedPolicyId(newPolicy.id);
-      }
-    } catch (err) {
-      setError(`Failed to add policy: ${err.message}`);
-      setTimeout(() => setError(''), 3000);
+    if (!title.trim() || !category.trim()) {
+      setError('Please provide both Category and Title for the SOP.');
+      return;
     }
+    if (!content.trim() && !policyFile) {
+      setError('Please enter SOP text content or upload a policy document file.');
+      return;
+    }
+
+    setConfirmConfig({
+      isOpen: true,
+      title: 'Publish Policy SOP',
+      message: `Are you sure you want to publish the SOP "${title.trim()}" under category "${category.trim()}"?\n\nThis document will be made accessible to all employees in the Centralized Knowledge Base.`,
+      confirmText: 'Publish SOP',
+      type: 'info',
+      onConfirm: async () => {
+        closeConfirm();
+        try {
+          const formData = new FormData();
+          formData.append('category', category.trim());
+          formData.append('title', title.trim());
+          formData.append('content', content.trim());
+          if (policyFile) {
+            formData.append('file', policyFile);
+          }
+
+          const newPolicy = await api.policies.create(formData);
+          setTitle('');
+          setCategory('');
+          setContent('');
+          setPolicyFile(null);
+          const fileInput = document.getElementById('policy-file-input');
+          if (fileInput) fileInput.value = '';
+
+          setStatus('Policy SOP published successfully!');
+          setTimeout(() => setStatus(''), 3000);
+          fetchPolicies();
+          if (newPolicy && newPolicy.id) {
+            setSelectedPolicyId(newPolicy.id);
+          }
+        } catch (err) {
+          setError(`Failed to publish SOP: ${err.message}`);
+          setTimeout(() => setError(''), 3000);
+        }
+      },
+      onCancel: closeConfirm
+    });
+  };
+
+  // Document Preview Modal state
+  const [docViewer, setDocViewer] = useState({
+    isOpen: false,
+    title: '',
+    blobUrl: '',
+    mimeType: '',
+    fileName: '',
+    rawUrl: ''
+  });
+
+  const closeDocViewer = () => {
+    if (docViewer.blobUrl && docViewer.blobUrl.startsWith('blob:')) {
+      URL.revokeObjectURL(docViewer.blobUrl);
+    }
+    setDocViewer({ isOpen: false, title: '', blobUrl: '', mimeType: '', fileName: '', rawUrl: '' });
+  };
+
+  const handleOpenDocViewer = (fileUrl, title, fileName = 'Policy_Document') => {
+    if (!fileUrl) return;
+
+    if (fileUrl.startsWith('data:')) {
+      try {
+        const parts = fileUrl.split(',');
+        const header = parts[0];
+        const rawData = parts.slice(1).join(',');
+        const mimeMatch = header.match(/:(.*?);/);
+        const mimeType = mimeMatch ? mimeMatch[1] : 'application/pdf';
+        const cleanBase64 = rawData.replace(/[\r\n\s]/g, '');
+
+        const byteCharacters = atob(cleanBase64);
+        const byteNumbers = new Array(byteCharacters.length);
+        for (let i = 0; i < byteCharacters.length; i++) {
+          byteNumbers[i] = byteCharacters.charCodeAt(i);
+        }
+        const byteArray = new Uint8Array(byteNumbers);
+        const blob = new Blob([byteArray], { type: mimeType });
+        const blobUrl = URL.createObjectURL(blob);
+
+        setDocViewer({
+          isOpen: true,
+          title,
+          blobUrl,
+          mimeType,
+          fileName,
+          rawUrl: fileUrl
+        });
+        return;
+      } catch (err) {
+        console.error('Error opening document viewer:', err);
+      }
+    }
+
+    let targetUrl = fileUrl;
+    if (!fileUrl.startsWith('http://') && !fileUrl.startsWith('https://')) {
+      targetUrl = `https://hrms-backend-gamma.vercel.app${fileUrl}`;
+    }
+
+    setDocViewer({
+      isOpen: true,
+      title,
+      blobUrl: targetUrl,
+      mimeType: targetUrl.toLowerCase().endsWith('.pdf') ? 'application/pdf' : 'application/octet-stream',
+      fileName,
+      rawUrl: targetUrl
+    });
+  };
+
+  const handleTriggerDownload = (fileUrl, fileName = 'Policy_Document') => {
+    if (!fileUrl) return;
+
+    if (fileUrl.startsWith('data:')) {
+      try {
+        const parts = fileUrl.split(',');
+        const header = parts[0];
+        const rawData = parts.slice(1).join(',');
+        const mimeMatch = header.match(/:(.*?);/);
+        const mimeType = mimeMatch ? mimeMatch[1] : 'application/pdf';
+        const cleanBase64 = rawData.replace(/[\r\n\s]/g, '');
+
+        const byteCharacters = atob(cleanBase64);
+        const byteNumbers = new Array(byteCharacters.length);
+        for (let i = 0; i < byteCharacters.length; i++) {
+          byteNumbers[i] = byteCharacters.charCodeAt(i);
+        }
+        const byteArray = new Uint8Array(byteNumbers);
+        const blob = new Blob([byteArray], { type: mimeType });
+        const blobUrl = URL.createObjectURL(blob);
+
+        const a = document.createElement('a');
+        a.href = blobUrl;
+        a.download = fileName;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        setTimeout(() => URL.revokeObjectURL(blobUrl), 10000);
+        return;
+      } catch (err) {
+        console.error('Error downloading base64 file:', err);
+        // Direct download fallback without falling through to server host prepend
+        const a = document.createElement('a');
+        a.href = fileUrl;
+        a.download = fileName;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        return;
+      }
+    }
+
+    let targetUrl = fileUrl;
+    if (!fileUrl.startsWith('http://') && !fileUrl.startsWith('https://')) {
+      targetUrl = `https://hrms-backend-gamma.vercel.app${fileUrl}`;
+    }
+    const a = document.createElement('a');
+    a.href = targetUrl;
+    a.download = fileName;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
   };
 
   // Filter policies based on selected category tab
@@ -141,13 +301,23 @@ export default function PolicySearch({ user }) {
               </div>
 
               <div className="form-group">
-                <label style={{ fontSize: '13px', fontWeight: '750', color: 'var(--text-secondary)', marginBottom: '6px', display: 'block' }}>Policy Document File (Compulsory)</label>
+                <label style={{ fontSize: '13px', fontWeight: '750', color: 'var(--text-secondary)', marginBottom: '6px', display: 'block' }}>SOP Guidelines / Text Details</label>
+                <textarea 
+                  placeholder="Type or paste SOP guidelines, rules, and policy details..." 
+                  value={content} 
+                  onChange={(e) => setContent(e.target.value)} 
+                  rows={4}
+                  style={{ width: '100%', padding: '12px', borderRadius: '10px', resize: 'vertical' }}
+                />
+              </div>
+
+              <div className="form-group">
+                <label style={{ fontSize: '13px', fontWeight: '750', color: 'var(--text-secondary)', marginBottom: '6px', display: 'block' }}>Policy Document File (Optional)</label>
                 <input 
                   id="policy-file-input"
                   type="file" 
-                  accept=".pdf, .docx, .doc, .png, .jpg, .jpeg"
+                  accept=".pdf, .docx, .doc, .png, .jpg, .jpeg, .txt, .md"
                   onChange={(e) => setPolicyFile(e.target.files[0])}
-                  required
                   style={{ fontSize: '12px', color: 'var(--text-secondary)' }}
                 />
               </div>
@@ -276,11 +446,9 @@ export default function PolicySearch({ user }) {
                   </div>
 
                   {selectedPolicy.file_url && (
-                    <div style={{ marginTop: '15px', borderTop: '1px solid var(--border-glass)', paddingTop: '15px' }}>
-                      <a 
-                        href={`https://hrms-backend-gamma.vercel.app${selectedPolicy.file_url}`} 
-                        target="_blank" 
-                        rel="noreferrer"
+                    <div style={{ marginTop: '15px', borderTop: '1px solid var(--border-glass)', paddingTop: '15px', display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                      <button 
+                        onClick={() => handleOpenDocViewer(selectedPolicy.file_url, selectedPolicy.title, selectedPolicy.file_name)}
                         className="btn-primary"
                         style={{
                           display: 'inline-flex',
@@ -292,13 +460,33 @@ export default function PolicySearch({ user }) {
                           borderRadius: '10px',
                           fontSize: '13px',
                           fontWeight: '700',
-                          textDecoration: 'none',
+                          border: 'none',
                           boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
                           cursor: 'pointer'
                         }}
                       >
-                        <FileText size={16} /> View/Download Policy Document
-                      </a>
+                        <FileText size={16} /> View Policy Document
+                      </button>
+
+                      <button 
+                        onClick={() => handleTriggerDownload(selectedPolicy.file_url, selectedPolicy.file_name)}
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '8px',
+                          background: 'rgba(255,255,255,0.05)',
+                          border: '1px solid var(--border-glass)',
+                          color: 'var(--text-primary)',
+                          padding: '10px 18px',
+                          borderRadius: '10px',
+                          fontSize: '13px',
+                          fontWeight: '700',
+                          cursor: 'pointer',
+                          transition: 'all 0.2s ease'
+                        }}
+                      >
+                        📥 Download ({selectedPolicy.file_name || 'File'})
+                      </button>
                     </div>
                   )}
                 </div>
@@ -431,11 +619,9 @@ export default function PolicySearch({ user }) {
                 </div>
 
                 {selectedPolicy.file_url && (
-                  <div style={{ marginTop: '15px', borderTop: '1px solid var(--border-glass)', paddingTop: '15px' }}>
-                    <a 
-                      href={`https://hrms-backend-gamma.vercel.app${selectedPolicy.file_url}`} 
-                      target="_blank" 
-                      rel="noreferrer"
+                  <div style={{ marginTop: '15px', borderTop: '1px solid var(--border-glass)', paddingTop: '15px', display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                    <button 
+                      onClick={() => handleOpenDocViewer(selectedPolicy.file_url, selectedPolicy.title, selectedPolicy.file_name)}
                       className="btn-primary"
                       style={{
                         display: 'inline-flex',
@@ -447,13 +633,33 @@ export default function PolicySearch({ user }) {
                         borderRadius: '10px',
                         fontSize: '13px',
                         fontWeight: '700',
-                        textDecoration: 'none',
+                        border: 'none',
                         boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
                         cursor: 'pointer'
                       }}
                     >
-                      <FileText size={16} /> View/Download Policy Document
-                    </a>
+                      <FileText size={16} /> View Policy Document
+                    </button>
+
+                    <button 
+                      onClick={() => handleTriggerDownload(selectedPolicy.file_url, selectedPolicy.file_name)}
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '8px',
+                        background: 'rgba(255,255,255,0.05)',
+                        border: '1px solid var(--border-glass)',
+                        color: 'var(--text-primary)',
+                        padding: '10px 18px',
+                        borderRadius: '10px',
+                        fontSize: '13px',
+                        fontWeight: '700',
+                        cursor: 'pointer',
+                        transition: 'all 0.2s ease'
+                      }}
+                    >
+                      📥 Download ({selectedPolicy.file_name || 'File'})
+                    </button>
                   </div>
                 )}
               </div>
@@ -465,6 +671,135 @@ export default function PolicySearch({ user }) {
           </div>
         </div>
       )}
+
+      {/* In-App Document Preview Modal */}
+      {docViewer.isOpen && (
+        <div 
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.85)',
+            backdropFilter: 'blur(8px)',
+            zIndex: 99999,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '20px'
+          }}
+          onClick={closeDocViewer}
+        >
+          <div 
+            style={{
+              background: '#0f172a',
+              border: '1px solid var(--border-glass)',
+              borderRadius: '20px',
+              width: '92%',
+              maxWidth: '1050px',
+              height: '85vh',
+              display: 'flex',
+              flexDirection: 'column',
+              boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)',
+              overflow: 'hidden'
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal Header */}
+            <div style={{
+              padding: '16px 24px',
+              borderBottom: '1px solid var(--border-glass)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              background: 'rgba(255, 255, 255, 0.02)'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <FileText size={22} style={{ color: '#38bdf8' }} />
+                <div>
+                  <h3 style={{ fontSize: '16px', fontWeight: '800', margin: 0, color: '#f8fafc' }}>
+                    {docViewer.title}
+                  </h3>
+                  <span style={{ fontSize: '11px', color: '#94a3b8' }}>
+                    {docViewer.fileName}
+                  </span>
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <button
+                  onClick={() => handleTriggerDownload(docViewer.rawUrl, docViewer.fileName)}
+                  className="btn-primary"
+                  style={{
+                    padding: '8px 16px',
+                    borderRadius: '8px',
+                    fontSize: '13px',
+                    fontWeight: '700',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px'
+                  }}
+                >
+                  📥 Download File
+                </button>
+                <button
+                  onClick={closeDocViewer}
+                  style={{
+                    background: 'rgba(255, 255, 255, 0.1)',
+                    color: '#94a3b8',
+                    border: 'none',
+                    width: '32px',
+                    height: '32px',
+                    borderRadius: '50%',
+                    cursor: 'pointer',
+                    fontSize: '16px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center'
+                  }}
+                >
+                  ✕
+                </button>
+              </div>
+            </div>
+
+            {/* Modal Body */}
+            <div style={{ flex: 1, width: '100%', height: '100%', background: '#1e293b' }}>
+              {docViewer.mimeType.includes('image') ? (
+                <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%', padding: '20px' }}>
+                  <img src={docViewer.blobUrl} alt={docViewer.fileName} style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain', borderRadius: '8px' }} />
+                </div>
+              ) : docViewer.mimeType === 'application/pdf' ? (
+                <iframe
+                  src={docViewer.blobUrl}
+                  title={docViewer.title}
+                  style={{ width: '100%', height: '100%', border: 'none' }}
+                />
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', gap: '16px', padding: '30px', textAlign: 'center' }}>
+                  <FileText size={48} style={{ color: '#38bdf8' }} />
+                  <div style={{ fontSize: '16px', color: '#f8fafc', fontWeight: '700' }}>
+                    {docViewer.fileName}
+                  </div>
+                  <div style={{ fontSize: '13px', color: '#94a3b8', maxWidth: '420px', lineHeight: '1.5' }}>
+                    This document format is ready for local viewing. Click below to download directly to your device.
+                  </div>
+                  <button
+                    onClick={() => handleTriggerDownload(docViewer.rawUrl, docViewer.fileName)}
+                    className="btn-primary"
+                    style={{ padding: '12px 24px', borderRadius: '10px', fontSize: '14px' }}
+                  >
+                    📥 Download {docViewer.fileName}
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      <ConfirmModal {...confirmConfig} />
     </div>
   );
 }

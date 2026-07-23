@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../utils/api';
+import ConfirmModal from './ConfirmModal';
 import { 
   FileText, Upload, Download, User, CreditCard, CheckCircle, Search, 
   Trash2, Plus, AlertCircle, ChevronDown, BookOpen, Shield, HelpCircle, X
@@ -12,6 +13,21 @@ export default function DocumentVault({ user }) {
   // Employees: 'personal', 'company'
   // Admins: 'personal_view', 'company_issue', 'mastersheet'
   const [activeTab, setActiveTab] = useState(isAdmin ? 'personal_view' : 'personal');
+
+  // Confirm Modal state
+  const [confirmConfig, setConfirmConfig] = useState({
+    isOpen: false,
+    title: '',
+    message: '',
+    confirmText: 'Confirm',
+    cancelText: 'Cancel',
+    type: 'info',
+    onConfirm: () => {}
+  });
+
+  const closeConfirm = () => {
+    setConfirmConfig(prev => ({ ...prev, isOpen: false }));
+  };
 
   // Employees data
   const [employees, setEmployees] = useState([]);
@@ -112,57 +128,67 @@ export default function DocumentVault({ user }) {
   };
 
   // Submit Personal Documents (Employee)
-  const handlePersonalSubmit = async (e) => {
+  const handlePersonalSubmit = (e) => {
     e.preventDefault();
-    setLoading(true);
-    setStatus('Syncing and uploading personal credentials...');
-    setError('');
 
     // IFSC validation format check
     const ifscRegex = /^[A-Z]{4}0[A-Z0-9]{6}$/;
     if (!ifscRegex.test(ifscCode.toUpperCase())) {
       setError("IFSC Code must follow the standard 11-digit alphanumeric format (e.g. SBIN0012345).");
-      setLoading(false);
       return;
     }
 
-    try {
-      const formData = new FormData();
-      formData.append('bank_name', bankName);
-      formData.append('account_number', accountNumber);
-      formData.append('account_name', accountName);
-      formData.append('ifsc_code', ifscCode);
-      formData.append('percentage_10th', pct10th);
-      formData.append('percentage_12th', pct12th);
-      formData.append('bachelors_cgpa', bachelorsCgpa);
-      formData.append('has_experience', hasExperience ? 'true' : 'false');
+    setConfirmConfig({
+      isOpen: true,
+      title: 'Submit Personal Documents & Credentials',
+      message: 'Are you sure you want to save and synchronize your personal documents and bank account credentials with the HR document vault?',
+      confirmText: 'Save & Synchronize',
+      type: 'info',
+      onConfirm: async () => {
+        closeConfirm();
+        setLoading(true);
+        setStatus('Syncing and uploading personal credentials...');
+        setError('');
 
-      if (aadhaarFile) formData.append('aadhaar', aadhaarFile);
-      if (panFile) formData.append('pan', panFile);
-      if (profilePhotoFile) formData.append('profile_photo', profilePhotoFile);
-      if (academicProofsFile) formData.append('academic_proofs', academicProofsFile);
-      if (passbookFile) formData.append('passbook', passbookFile);
-      if (experienceFile) formData.append('experience', experienceFile);
+        try {
+          const formData = new FormData();
+          formData.append('bank_name', bankName);
+          formData.append('account_number', accountNumber);
+          formData.append('account_name', accountName);
+          formData.append('ifsc_code', ifscCode);
+          formData.append('percentage_10th', pct10th);
+          formData.append('percentage_12th', pct12th);
+          formData.append('bachelors_cgpa', bachelorsCgpa);
+          formData.append('has_experience', hasExperience ? 'true' : 'false');
 
-      await api.documents.savePersonal(formData);
-      
-      // Reset input files
-      setAadhaarFile(null);
-      setPanFile(null);
-      setProfilePhotoFile(null);
-      setAcademicProofsFile(null);
-      setPassbookFile(null);
-      setExperienceFile(null);
+          if (aadhaarFile) formData.append('aadhaar', aadhaarFile);
+          if (panFile) formData.append('pan', panFile);
+          if (profilePhotoFile) formData.append('profile_photo', profilePhotoFile);
+          if (academicProofsFile) formData.append('academic_proofs', academicProofsFile);
+          if (passbookFile) formData.append('passbook', passbookFile);
+          if (experienceFile) formData.append('experience', experienceFile);
 
-      setStatus('Personal documents successfully synchronized and saved!');
-      setTimeout(() => setStatus(''), 4000);
-      setShowSuccessModal(true);
-      fetchVaultData('me');
-    } catch (err) {
-      setError(err.message || 'Submission failed. Please check file sizes and compulsory details.');
-    } finally {
-      setLoading(false);
-    }
+          await api.documents.savePersonal(formData);
+          
+          setAadhaarFile(null);
+          setPanFile(null);
+          setProfilePhotoFile(null);
+          setAcademicProofsFile(null);
+          setPassbookFile(null);
+          setExperienceFile(null);
+
+          setStatus('Personal documents successfully synchronized and saved!');
+          setTimeout(() => setStatus(''), 4000);
+          setShowSuccessModal(true);
+          fetchVaultData('me');
+        } catch (err) {
+          setError(err.message || 'Submission failed. Please check file sizes and compulsory details.');
+        } finally {
+          setLoading(false);
+        }
+      },
+      onCancel: closeConfirm
+    });
   };
 
   // Select employee from searchable dropdown (Admin)
@@ -205,40 +231,50 @@ export default function DocumentVault({ user }) {
   };
 
   // HR Save Changes button execution
-  const handleSaveCompanyChanges = async () => {
+  const handleSaveCompanyChanges = () => {
     if (!selectedEmp) return;
-    setLoading(true);
-    setStatus('Saving company issued documents loop updates...');
-    setError('');
 
-    try {
-      const formData = new FormData();
-      
-      // Extract existing docs (already uploaded)
-      const existingDocs = companyQueue.filter(item => !item.isNew).map(item => ({
-        id: item.id,
-        title: item.title,
-        file_url: item.file_url,
-        upload_date: item.upload_date
-      }));
-      formData.append('existing_docs', JSON.stringify(existingDocs));
+    setConfirmConfig({
+      isOpen: true,
+      title: 'Issue Company Documents',
+      message: `Are you sure you want to save and issue updated company documents for ${selectedEmp.name}?`,
+      confirmText: 'Issue Documents',
+      type: 'info',
+      onConfirm: async () => {
+        closeConfirm();
+        setLoading(true);
+        setStatus('Saving company issued documents loop updates...');
+        setError('');
 
-      // Append new files
-      const newItems = companyQueue.filter(item => item.isNew);
-      newItems.forEach(item => {
-        formData.append('files', item.file);
-        formData.append('titles', item.title);
-      });
+        try {
+          const formData = new FormData();
+          
+          const existingDocs = companyQueue.filter(item => !item.isNew).map(item => ({
+            id: item.id,
+            title: item.title,
+            file_url: item.file_url,
+            upload_date: item.upload_date
+          }));
+          formData.append('existing_docs', JSON.stringify(existingDocs));
 
-      await api.documents.saveCompany(selectedEmp.id, formData);
-      setStatus('Company issued documents successfully saved and synchronized!');
-      setTimeout(() => setStatus(''), 4000);
-      fetchVaultData(selectedEmp.id);
-    } catch (err) {
-      setError(`Failed to save changes: ${err.message}`);
-    } finally {
-      setLoading(false);
-    }
+          const newItems = companyQueue.filter(item => item.isNew);
+          newItems.forEach(item => {
+            formData.append('files', item.file);
+            formData.append('titles', item.title);
+          });
+
+          await api.documents.saveCompany(selectedEmp.id, formData);
+          setStatus('Company issued documents successfully saved and synchronized!');
+          setTimeout(() => setStatus(''), 4000);
+          fetchVaultData(selectedEmp.id);
+        } catch (err) {
+          setError(`Failed to save changes: ${err.message}`);
+        } finally {
+          setLoading(false);
+        }
+      },
+      onCancel: closeConfirm
+    });
   };
 
   const handleViewFile = (e, url, title) => {
@@ -1036,7 +1072,7 @@ export default function DocumentVault({ user }) {
           </div>
         </div>
       )}
-
+      <ConfirmModal {...confirmConfig} />
     </div>
   );
 }

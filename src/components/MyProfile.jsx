@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import ConfirmModal from './ConfirmModal';
 import { User, CheckCircle, ShieldAlert, Save } from 'lucide-react';
 
 export default function MyProfile({ user, onUserUpdate }) {
@@ -20,6 +21,21 @@ export default function MyProfile({ user, onUserUpdate }) {
   const [saveStatus, setSaveStatus] = useState('');
   const [saveError, setSaveError] = useState('');
   const [saving, setSaving] = useState(false);
+
+  // Confirm Modal state
+  const [confirmConfig, setConfirmConfig] = useState({
+    isOpen: false,
+    title: '',
+    message: '',
+    confirmText: 'Confirm',
+    cancelText: 'Cancel',
+    type: 'info',
+    onConfirm: () => {}
+  });
+
+  const closeConfirm = () => {
+    setConfirmConfig(prev => ({ ...prev, isOpen: false }));
+  };
 
   // Sync if user object changes
   useEffect(() => {
@@ -56,49 +72,61 @@ export default function MyProfile({ user, onUserUpdate }) {
     }
   }, [dob]);
 
-  const handleSaveInfo = async (e) => {
+  const handleSaveInfo = (e) => {
     e.preventDefault();
-    setSaving(true);
-    setSaveStatus('');
-    setSaveError('');
 
-    try {
-      const token = localStorage.getItem('hr_token');
-      const res = await fetch('https://hrms-backend-gamma.vercel.app/api/employees/me', {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({
-          salutation,
-          name,
-          emp_id: empId,
-          department,
-          designation,
-          doj,
-          dob,
-          age,
-          personal_email: personalEmail,
-          current_address: currentAddress,
-          office_contact: officeContact,
-          personal_contact: personalContact
-        })
-      });
+    setConfirmConfig({
+      isOpen: true,
+      title: 'Save Profile Changes',
+      message: 'Are you sure you want to save updated personal and profile details?',
+      confirmText: 'Save Profile',
+      type: 'info',
+      onConfirm: async () => {
+        closeConfirm();
+        setSaving(true);
+        setSaveStatus('');
+        setSaveError('');
 
-      if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.detail || 'Failed to update profile.');
-      }
+        try {
+          const token = localStorage.getItem('hr_token');
+          const res = await fetch('https://hrms-backend-gamma.vercel.app/api/employees/me', {
+            method: 'PUT',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({
+              salutation,
+              name,
+              emp_id: empId,
+              department,
+              designation,
+              doj,
+              dob,
+              age,
+              personal_email: personalEmail,
+              current_address: currentAddress,
+              office_contact: officeContact,
+              personal_contact: personalContact
+            })
+          });
 
-      setSaveStatus('Profile information updated and synchronized successfully!');
-      setTimeout(() => setSaveStatus(''), 3000);
-      if (onUserUpdate) onUserUpdate();
-    } catch (err) {
-      setSaveError(err.message || 'Failed to save details.');
-    } finally {
-      setSaving(false);
-    }
+          if (!res.ok) {
+            const data = await res.json();
+            throw new Error(data.detail || 'Failed to update profile.');
+          }
+
+          setSaveStatus('Profile information updated and synchronized successfully!');
+          setTimeout(() => setSaveStatus(''), 3000);
+          if (onUserUpdate) onUserUpdate();
+        } catch (err) {
+          setSaveError(err.message || 'Failed to save details.');
+        } finally {
+          setSaving(false);
+        }
+      },
+      onCancel: closeConfirm
+    });
   };
 
   return (
@@ -210,6 +238,7 @@ export default function MyProfile({ user, onUserUpdate }) {
               {saving ? 'Saving...' : 'Save My Information'}
             </button>
           </form>
+          <ConfirmModal {...confirmConfig} />
         </div>
       </div>
     );

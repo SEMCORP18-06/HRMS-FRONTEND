@@ -1128,3 +1128,168 @@ body.light-mode .role-switcher-bg {
   }
 }
 
+/* ── OTP Input & Auth Wizard Styles ────────────────────────────────────── */
+.otp-input-container {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  margin: 20px 0;
+}
+
+.otp-input-container input {
+  width: 48px;
+  height: 56px;
+  text-align: center;
+  font-size: 22px;
+  font-weight: 800;
+  border: 2px solid var(--border-glass);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text-primary);
+  outline: none;
+  transition: all 0.3s ease;
+  caret-color: var(--brand-blue);
+  padding: 0;
+  min-height: unset;
+}
+
+body.light-mode .otp-input-container input {
+  background: rgba(0, 0, 0, 0.03);
+}
+
+.otp-input-container input:focus {
+  border-color: var(--brand-blue);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2), 0 0 20px rgba(59, 130, 246, 0.1);
+  transform: translateY(-2px);
+}
+
+.otp-input-container input.filled {
+  border-color: #10b981;
+  background: rgba(16, 185, 129, 0.08);
+}
+
+.auth-step-indicator {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-bottom: 25px;
+}
+
+.auth-step-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--border-glass);
+  transition: all 0.4s ease;
+}
+
+.auth-step-dot.active {
+  background: var(--brand-blue);
+  box-shadow: 0 0 8px rgba(59, 130, 246, 0.5);
+  transform: scale(1.2);
+}
+
+.auth-step-dot.completed {
+  background: #10b981;
+  box-shadow: 0 0 8px rgba(16, 185, 129, 0.5);
+}
+
+.auth-step-line {
+  width: 40px;
+  height: 2px;
+  background: var(--border-glass);
+  transition: all 0.4s ease;
+}
+
+.auth-step-line.completed {
+  background: #10b981;
+}
+
+.resend-timer {
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin-top: 12px;
+  font-weight: 600;
+  text-align: center;
+}
+
+.resend-timer button {
+  background: transparent;
+  border: none;
+  color: var(--brand-blue);
+  font-weight: 700;
+  cursor: pointer;
+  text-decoration: underline;
+  font-size: 12px;
+  min-height: unset;
+  padding: 0;
+}
+
+.resend-timer button:disabled {
+  color: var(--text-muted);
+  cursor: not-allowed;
+  text-decoration: none;
+}
+
+.auth-fade-in {
+  animation: authFadeIn 0.4s ease;
+}
+
+@keyframes authFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.forgot-password-link {
+  background: transparent;
+  border: none;
+  color: var(--brand-blue);
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  text-decoration: none;
+  padding: 0;
+  margin-top: 6px;
+  display: inline-block;
+  transition: color 0.2s ease;
+  min-height: unset;
+}
+
+.forgot-password-link:hover {
+  color: #2563eb;
+  text-decoration: underline;
+}
+
+.verification-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  background: rgba(16, 185, 129, 0.12);
+  color: #10b981;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 700;
+  margin: 10px 0;
+}
+
+.password-strength {
+  height: 4px;
+  border-radius: 2px;
+  background: var(--border-glass);
+  margin-top: 8px;
+  overflow: hidden;
+}
+
+.password-strength-bar {
+  height: 100%;
+  border-radius: 2px;
+  transition: width 0.3s ease, background 0.3s ease;
+}

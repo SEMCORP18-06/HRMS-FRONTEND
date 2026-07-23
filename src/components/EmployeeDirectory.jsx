@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../utils/api';
+import ConfirmModal from './ConfirmModal';
 import { Users, Plus, FileSpreadsheet, ShieldAlert, Check, Archive, RotateCcw, Trash2, Edit2 } from 'lucide-react';
 
 export default function EmployeeDirectory() {
@@ -28,7 +29,21 @@ export default function EmployeeDirectory() {
   const [loading, setLoading] = useState(false);
   
   const [editingEmployee, setEditingEmployee] = useState(null);
-  const [confirmDialog, setConfirmDialog] = useState(null);
+  
+  // Confirm Modal state
+  const [confirmConfig, setConfirmConfig] = useState({
+    isOpen: false,
+    title: '',
+    message: '',
+    confirmText: 'Confirm',
+    cancelText: 'Cancel',
+    type: 'info',
+    onConfirm: () => {}
+  });
+
+  const closeConfirm = () => {
+    setConfirmConfig(prev => ({ ...prev, isOpen: false }));
+  };
 
   useEffect(() => {
     fetchEmployees();
@@ -51,40 +66,51 @@ export default function EmployeeDirectory() {
       return;
     }
 
-    setLoading(true);
-    setError('');
-    setStatus('');
+    setConfirmConfig({
+      isOpen: true,
+      title: 'Send Onboarding Invitation',
+      message: `Are you sure you want to send an onboarding invitation to ${name} at ${personalEmail}?`,
+      confirmText: 'Send Invite',
+      type: 'info',
+      onConfirm: async () => {
+        closeConfirm();
+        setLoading(true);
+        setError('');
+        setStatus('');
 
-    try {
-      const token = localStorage.getItem('hr_token');
-      const res = await fetch('https://hrms-backend-gamma.vercel.app/api/invite/send', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({
-          salutation,
-          name,
-          personal_email: personalEmail
-        })
-      });
+        try {
+          const token = localStorage.getItem('hr_token');
+          const res = await fetch('https://hrms-backend-gamma.vercel.app/api/invite/send', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({
+              salutation,
+              name,
+              personal_email: personalEmail
+            })
+          });
 
-      if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.detail || 'Failed to send invite.');
-      }
+          if (!res.ok) {
+            const data = await res.json();
+            throw new Error(data.detail || 'Failed to send invite.');
+          }
 
-      setStatus(`Onboarding invitation successfully sent to ${personalEmail}!`);
-      setSalutation('Mr.');
-      setName('');
-      setPersonalEmail('');
-      fetchEmployees();
-    } catch (err) {
-      setError(err.message || 'Failed to send invite.');
-    } finally {
-      setLoading(false);
-    }
+          setStatus(`Onboarding invitation successfully sent to ${personalEmail}!`);
+          setSalutation('Mr.');
+          setName('');
+          setPersonalEmail('');
+          fetchEmployees();
+        } catch (err) {
+          setError(err.message || 'Failed to send invite.');
+        } finally {
+          setLoading(false);
+        }
+      },
+      onCancel: closeConfirm
+    });
   };
 
   const handleImport = async (e) => {
@@ -94,32 +120,47 @@ export default function EmployeeDirectory() {
       return;
     }
 
-    setLoading(true);
-    setError('');
-    setStatus('');
+    setConfirmConfig({
+      isOpen: true,
+      title: 'Bulk Import Employee Roster',
+      message: `Are you sure you want to import employee profiles from "${file.name}"? Existing matching profiles will be synchronized.`,
+      confirmText: 'Import Roster CSV',
+      type: 'info',
+      onConfirm: async () => {
+        closeConfirm();
+        setLoading(true);
+        setError('');
+        setStatus('');
 
-    const formData = new FormData();
-    formData.append('file', file);
+        const formData = new FormData();
+        formData.append('file', file);
 
-    try {
-      const res = await api.employees.import(formData);
-      setStatus(`Import complete! ${res.imported} employee profiles synchronized with Active Roster.`);
-      setFile(null);
-      const fileInput = document.getElementById('employee-file-input');
-      if (fileInput) fileInput.value = '';
-      fetchEmployees();
-    } catch (err) {
-      setError(err.message || 'File import failed.');
-    } finally {
-      setLoading(false);
-    }
+        try {
+          const res = await api.employees.import(formData);
+          setStatus(`Import complete! ${res.imported} employee profiles synchronized with Active Roster.`);
+          setFile(null);
+          const fileInput = document.getElementById('employee-file-input');
+          if (fileInput) fileInput.value = '';
+          fetchEmployees();
+        } catch (err) {
+          setError(err.message || 'File import failed.');
+        } finally {
+          setLoading(false);
+        }
+      },
+      onCancel: closeConfirm
+    });
   };
 
   const handleArchive = (id, empName) => {
-    setConfirmDialog({
+    setConfirmConfig({
+      isOpen: true,
+      title: 'Archive Employee Profile',
       message: `Are you sure you want to move ${empName} to the archive section?`,
+      confirmText: 'Archive Profile',
       type: 'warning',
       onConfirm: async () => {
+        closeConfirm();
         try {
           setError('');
           setStatus('');
@@ -129,27 +170,43 @@ export default function EmployeeDirectory() {
         } catch (err) {
           setError(err.message || 'Failed to archive employee.');
         }
-      }
+      },
+      onCancel: closeConfirm
     });
   };
 
   const handleRestore = async (id, empName) => {
-    try {
-      setError('');
-      setStatus('');
-      await api.employees.restore(id);
-      setStatus(`${empName} restored to the Active Roster.`);
-      fetchEmployees();
-    } catch (err) {
-      setError(err.message || 'Failed to restore employee.');
-    }
+    setConfirmConfig({
+      isOpen: true,
+      title: 'Restore Employee Profile',
+      message: `Are you sure you want to restore ${empName} back to the Active Employee Roster?`,
+      confirmText: 'Restore Profile',
+      type: 'info',
+      onConfirm: async () => {
+        closeConfirm();
+        try {
+          setError('');
+          setStatus('');
+          await api.employees.restore(id);
+          setStatus(`${empName} restored to the Active Roster.`);
+          fetchEmployees();
+        } catch (err) {
+          setError(err.message || 'Failed to restore employee.');
+        }
+      },
+      onCancel: closeConfirm
+    });
   };
 
   const handleDeleteForever = (id, empName) => {
-    setConfirmDialog({
+    setConfirmConfig({
+      isOpen: true,
+      title: 'Permanently Delete Employee',
       message: `WARNING: Are you absolutely sure you want to permanently delete ${empName}? This action cannot be undone.`,
+      confirmText: 'Permanently Delete',
       type: 'danger',
       onConfirm: async () => {
+        closeConfirm();
         try {
           setError('');
           setStatus('');
@@ -159,66 +216,89 @@ export default function EmployeeDirectory() {
         } catch (err) {
           setError(err.message || 'Failed to delete employee.');
         }
-      }
+      },
+      onCancel: closeConfirm
     });
   };
 
   const handleTogglePersonalEmailAccess = async (emp) => {
-    try {
-      setError('');
-      setStatus('');
-      await api.employees.update(emp.id, {
-        emp_id: emp.emp_id,
-        name: emp.name,
-        email: emp.email,
-        designation: emp.designation,
-        department: emp.department,
-        dob: emp.dob,
-        doj: emp.doj,
-        personal_email: emp.personal_email,
-        current_address: emp.current_address,
-        office_contact: emp.office_contact,
-        personal_contact: emp.personal_contact,
-        allow_personal_email_access: !emp.allow_personal_email_access
-      });
-      setStatus(`Personal email access status updated for ${emp.name}.`);
-      fetchEmployees();
-    } catch (err) {
-      setError(err.message || 'Failed to update personal email access.');
-    }
+    const actionText = emp.allow_personal_email_access ? 'revoke' : 'grant';
+    setConfirmConfig({
+      isOpen: true,
+      title: 'Personal Email Access',
+      message: `Are you sure you want to ${actionText} personal email access for ${emp.name}?`,
+      confirmText: `${actionText.charAt(0).toUpperCase() + actionText.slice(1)} Access`,
+      type: 'warning',
+      onConfirm: async () => {
+        closeConfirm();
+        try {
+          setError('');
+          setStatus('');
+          await api.employees.update(emp.id, {
+            emp_id: emp.emp_id,
+            name: emp.name,
+            email: emp.email,
+            designation: emp.designation,
+            department: emp.department,
+            dob: emp.dob,
+            doj: emp.doj,
+            personal_email: emp.personal_email,
+            current_address: emp.current_address,
+            office_contact: emp.office_contact,
+            personal_contact: emp.personal_contact,
+            allow_personal_email_access: !emp.allow_personal_email_access
+          });
+          setStatus(`Personal email access status updated for ${emp.name}.`);
+          fetchEmployees();
+        } catch (err) {
+          setError(err.message || 'Failed to update personal email access.');
+        }
+      },
+      onCancel: closeConfirm
+    });
   };
 
-  const handleSaveEdit = async (e) => {
+  const handleSaveEdit = (e) => {
     e.preventDefault();
     if (!editingEmployee || !editingEmployee.name) return;
-    
-    setLoading(true);
-    setError('');
-    setStatus('');
-    
-    try {
-      await api.employees.update(editingEmployee.id, {
-        emp_id: editingEmployee.emp_id,
-        name: editingEmployee.name,
-        email: editingEmployee.email,
-        designation: editingEmployee.designation,
-        department: editingEmployee.department,
-        dob: editingEmployee.dob,
-        doj: editingEmployee.doj,
-        personal_email: editingEmployee.personal_email,
-        current_address: editingEmployee.current_address,
-        office_contact: editingEmployee.office_contact,
-        personal_contact: editingEmployee.personal_contact,
-        allow_personal_email_access: editingEmployee.allow_personal_email_access
-      });
-      setStatus(`Employee profile for ${editingEmployee.name} updated successfully!`);
-      setEditingEmployee(null);
-      fetchEmployees();
-    } catch (err) {
-      setError(err.message || 'Failed to update employee.');
-    } finally {
-      setLoading(false);
-    }
+
+    setConfirmConfig({
+      isOpen: true,
+      title: 'Save Profile Changes',
+      message: `Are you sure you want to save updated profile information for ${editingEmployee.name}?`,
+      confirmText: 'Save Changes',
+      type: 'info',
+      onConfirm: async () => {
+        closeConfirm();
+        setLoading(true);
+        setError('');
+        setStatus('');
+        
+        try {
+          await api.employees.update(editingEmployee.id, {
+            emp_id: editingEmployee.emp_id,
+            name: editingEmployee.name,
+            email: editingEmployee.email,
+            designation: editingEmployee.designation,
+            department: editingEmployee.department,
+            dob: editingEmployee.dob,
+            doj: editingEmployee.doj,
+            personal_email: editingEmployee.personal_email,
+            current_address: editingEmployee.current_address,
+            office_contact: editingEmployee.office_contact,
+            personal_contact: editingEmployee.personal_contact
+          });
+          setStatus(`Employee profile updated for ${editingEmployee.name}.`);
+          setEditingEmployee(null);
+          fetchEmployees();
+        } catch (err) {
+          setError(err.message || 'Failed to update employee details.');
+        } finally {
+          setLoading(false);
+        }
+      },
+      onCancel: closeConfirm
+    });
   };
 
   const convertDMYtoYMD = (dmy) => {
@@ -892,58 +972,7 @@ export default function EmployeeDirectory() {
           </div>
         </div>
       )}
-      {/* CUSTOM CONFIRMATION DIALOG */}
-      {confirmDialog && (
-        <div className="modal-backdrop">
-          <div className="modal-content-popup" style={{ width: '460px', textAlign: 'center', padding: '30px' }}>
-            <div style={{ fontSize: '50px', marginBottom: '15px' }}>
-              {confirmDialog.type === 'danger' ? '⚠️' : '❓'}
-            </div>
-            <h3 style={{ marginBottom: '15px', color: 'var(--text-primary)' }}>Confirmation Required</h3>
-            <p style={{ color: 'var(--text-secondary)', marginBottom: '25px', fontSize: '18px', lineHeight: '1.5' }}>
-              {confirmDialog.message}
-            </p>
-            <div style={{ display: 'flex', gap: '15px', justifyContent: 'center' }}>
-              <button 
-                className="btn-action" 
-                style={{ 
-                  padding: '10px 20px', 
-                  borderRadius: '8px', 
-                  fontWeight: 'bold', 
-                  fontSize: '17px',
-                  background: 'rgba(255,255,255,0.05)',
-                  border: '1px solid var(--border-glass)',
-                  color: 'var(--text-primary)',
-                  cursor: 'pointer'
-                }}
-                onClick={() => setConfirmDialog(null)}
-              >
-                Cancel
-              </button>
-              <button 
-                className="btn-primary" 
-                style={{ 
-                  padding: '10px 20px', 
-                  borderRadius: '8px', 
-                  fontWeight: 'bold', 
-                  fontSize: '17px',
-                  background: confirmDialog.type === 'danger' ? '#ef4444' : 'var(--brand-blue)',
-                  border: 'none',
-                  color: '#ffffff',
-                  cursor: 'pointer'
-                }}
-                onClick={async () => {
-                  const action = confirmDialog.onConfirm;
-                  setConfirmDialog(null);
-                  await action();
-                }}
-              >
-                Confirm
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <ConfirmModal {...confirmConfig} />
     </div>
   );
 }

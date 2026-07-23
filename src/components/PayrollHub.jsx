@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { api } from '../utils/api';
+import ConfirmModal from './ConfirmModal';
 import { IndianRupee, Upload, Mail, Check, AlertTriangle, Download, FileText, Table2, ChevronDown, User, Building2, BadgeCheck } from 'lucide-react';
 
 const API_BASE = 'https://hrms-backend-gamma.vercel.app/api';
@@ -12,6 +13,21 @@ export default function PayrollHub() {
   const fileInputRef = useRef();
 
   const [activeTab, setActiveTab] = useState('payslips');
+
+  // Confirm Modal state
+  const [confirmConfig, setConfirmConfig] = useState({
+    isOpen: false,
+    title: '',
+    message: '',
+    confirmText: 'Confirm',
+    cancelText: 'Cancel',
+    type: 'info',
+    onConfirm: () => {}
+  });
+
+  const closeConfirm = () => {
+    setConfirmConfig(prev => ({ ...prev, isOpen: false }));
+  };
 
   // Employee lookup state
   const [allEmployees, setAllEmployees] = useState([]);
@@ -83,34 +99,57 @@ export default function PayrollHub() {
     setCalcAmount('');
   };
 
-  const handleFileUpload = async (e) => {
+  const handleFileUpload = (e) => {
     const file = e.target.files[0];
     if (!file) return;
-    setLoading(true);
-    setUploadStatus('Uploading and parsing CSV payroll records...');
-    const formData = new FormData();
-    formData.append('file', file);
-    try {
-      const result = await api.payroll.upload(formData);
-      setUploadStatus(`Successfully imported ${result.imported} payroll records!`);
-      fetchPayrolls();
-    } catch (err) {
-      setUploadStatus(`Import failed: ${err.message}`);
-    } finally {
-      setLoading(false);
-    }
+
+    setConfirmConfig({
+      isOpen: true,
+      title: 'Import Payroll CSV',
+      message: `Are you sure you want to upload and parse payroll records from "${file.name}"?`,
+      confirmText: 'Import CSV',
+      type: 'info',
+      onConfirm: async () => {
+        closeConfirm();
+        setLoading(true);
+        setUploadStatus('Uploading and parsing CSV payroll records...');
+        const formData = new FormData();
+        formData.append('file', file);
+        try {
+          const result = await api.payroll.upload(formData);
+          setUploadStatus(`Successfully imported ${result.imported} payroll records!`);
+          fetchPayrolls();
+        } catch (err) {
+          setUploadStatus(`Import failed: ${err.message}`);
+        } finally {
+          setLoading(false);
+        }
+      },
+      onCancel: closeConfirm
+    });
   };
 
-  const handleEmailPayslip = async (payrollId) => {
-    setEmailStatus(prev => ({ ...prev, [payrollId]: 'sending' }));
-    try {
-      await api.payroll.email(payrollId);
-      setEmailStatus(prev => ({ ...prev, [payrollId]: 'sent' }));
-      fetchPayrolls();
-    } catch (err) {
-      setEmailStatus(prev => ({ ...prev, [payrollId]: 'failed' }));
-      await alert(`Mailing failed: ${err.message}`);
-    }
+  const handleEmailPayslip = (payrollId, empName = 'Employee') => {
+    setConfirmConfig({
+      isOpen: true,
+      title: 'Email Payslip',
+      message: `Are you sure you want to email official payslip to ${empName}?`,
+      confirmText: 'Email Payslip',
+      type: 'info',
+      onConfirm: async () => {
+        closeConfirm();
+        setEmailStatus(prev => ({ ...prev, [payrollId]: 'sending' }));
+        try {
+          await api.payroll.email(payrollId);
+          setEmailStatus(prev => ({ ...prev, [payrollId]: 'sent' }));
+          fetchPayrolls();
+        } catch (err) {
+          setEmailStatus(prev => ({ ...prev, [payrollId]: 'failed' }));
+          await alert(`Mailing failed: ${err.message}`);
+        }
+      },
+      onCancel: closeConfirm
+    });
   };
 
   const triggerFileSelect = () => fileInputRef.current.click();
@@ -827,6 +866,7 @@ export default function PayrollHub() {
           )}
         </div>
       )}
+      <ConfirmModal {...confirmConfig} />
     </div>
   );
 }

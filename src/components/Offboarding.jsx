@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../utils/api';
+import ConfirmModal from './ConfirmModal';
 import { 
   UserMinus, ShieldAlert, Calendar, Clock, MapPin, CheckSquare, 
   Trash2, User, Mail, Briefcase, FileText, ChevronRight, AlertTriangle 
@@ -26,6 +27,21 @@ export default function Offboarding({ activeTenant, user }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [statusMsg, setStatusMsg] = useState('');
+
+  // Confirm Modal state
+  const [confirmConfig, setConfirmConfig] = useState({
+    isOpen: false,
+    title: '',
+    message: '',
+    confirmText: 'Confirm',
+    cancelText: 'Cancel',
+    type: 'info',
+    onConfirm: () => {}
+  });
+
+  const closeConfirm = () => {
+    setConfirmConfig(prev => ({ ...prev, isOpen: false }));
+  };
 
   useEffect(() => {
     if (isAdmin) {
@@ -73,106 +89,155 @@ export default function Offboarding({ activeTenant, user }) {
     }
   };
 
-  const handleTriggerOffboarding = async (employeeId, empName) => {
-    if (!await confirm(`Are you sure you want to trigger offboarding for ${empName}? This will change their status and email them a link.`)) {
-      return;
-    }
-    
-    setLoading(true);
-    setError('');
-    setStatusMsg('');
-    try {
-      const res = await api.offboarding.trigger(employeeId);
-      setStatusMsg(res.message || 'Offboarding triggered successfully.');
-      fetchEmployees();
-    } catch (err) {
-      setError(err.message || 'Failed to trigger offboarding.');
-    } finally {
-      setLoading(false);
-    }
+  const handleTriggerOffboarding = (employeeId, empName) => {
+    setConfirmConfig({
+      isOpen: true,
+      title: 'Trigger Offboarding',
+      message: `Are you sure you want to trigger offboarding process for ${empName}?\n\nThis will update their employment status and dispatch formal offboarding instructions.`,
+      confirmText: 'Trigger Offboarding',
+      type: 'warning',
+      onConfirm: async () => {
+        closeConfirm();
+        setLoading(true);
+        setError('');
+        setStatusMsg('');
+        try {
+          const res = await api.offboarding.trigger(employeeId);
+          setStatusMsg(res.message || 'Offboarding triggered successfully.');
+          fetchEmployees();
+        } catch (err) {
+          setError(err.message || 'Failed to trigger offboarding.');
+        } finally {
+          setLoading(false);
+        }
+      },
+      onCancel: closeConfirm
+    });
   };
 
-  const handleScheduleInterview = async (e, employeeId) => {
+  const handleScheduleInterview = (e, employeeId) => {
     e.preventDefault();
     if (!interviewDate || !interviewTime) {
       setError('Please provide date and time.');
       return;
     }
 
-    setLoading(true);
-    setError('');
-    setStatusMsg('');
-    try {
-      const res = await api.offboarding.scheduleInterview(employeeId, {
-        date: interviewDate,
-        time: interviewTime,
-        location: interviewLocation || 'Google Meet'
-      });
-      setStatusMsg(res.message || 'Exit interview scheduled successfully.');
-      setSchedulingEmpId('');
-      setInterviewDate('');
-      setInterviewTime('');
-      setInterviewLocation('');
-      fetchEmployees();
-    } catch (err) {
-      setError(err.message || 'Failed to schedule exit interview.');
-    } finally {
-      setLoading(false);
-    }
+    const empObj = employees.find(e => e.id === employeeId);
+    setConfirmConfig({
+      isOpen: true,
+      title: 'Schedule Exit Interview',
+      message: `Are you sure you want to schedule an exit interview for ${empObj ? empObj.name : 'this employee'} on ${interviewDate} at ${interviewTime}?`,
+      confirmText: 'Schedule Interview',
+      type: 'info',
+      onConfirm: async () => {
+        closeConfirm();
+        setLoading(true);
+        setError('');
+        setStatusMsg('');
+        try {
+          const res = await api.offboarding.scheduleInterview(employeeId, {
+            date: interviewDate,
+            time: interviewTime,
+            location: interviewLocation || 'Google Meet'
+          });
+          setStatusMsg(res.message || 'Exit interview scheduled successfully.');
+          setSchedulingEmpId('');
+          setInterviewDate('');
+          setInterviewTime('');
+          setInterviewLocation('');
+          fetchEmployees();
+        } catch (err) {
+          setError(err.message || 'Failed to schedule exit interview.');
+        } finally {
+          setLoading(false);
+        }
+      },
+      onCancel: closeConfirm
+    });
   };
 
-  const handleMarkChecklistComplete = async (employeeId) => {
-    setLoading(true);
-    setError('');
-    setStatusMsg('');
-    try {
-      const res = await api.offboarding.markChecklistComplete(employeeId);
-      setStatusMsg(res.message || 'Checklist formalities marked complete.');
-      fetchEmployees();
-    } catch (err) {
-      setError(err.message || 'Failed to update checklist status.');
-    } finally {
-      setLoading(false);
-    }
+  const handleMarkChecklistComplete = (employeeId) => {
+    const empObj = employees.find(e => e.id === employeeId);
+    setConfirmConfig({
+      isOpen: true,
+      title: 'Complete Offboarding Formalities',
+      message: `Are you sure you want to mark all clearance checklist formalities as COMPLETE for ${empObj ? empObj.name : 'this employee'}?`,
+      confirmText: 'Mark Complete',
+      type: 'success',
+      onConfirm: async () => {
+        closeConfirm();
+        setLoading(true);
+        setError('');
+        setStatusMsg('');
+        try {
+          const res = await api.offboarding.markChecklistComplete(employeeId);
+          setStatusMsg(res.message || 'Checklist formalities marked complete.');
+          fetchEmployees();
+        } catch (err) {
+          setError(err.message || 'Failed to update checklist status.');
+        } finally {
+          setLoading(false);
+        }
+      },
+      onCancel: closeConfirm
+    });
   };
 
-  const handleDeleteEmployee = async (employeeId, empName) => {
-    if (!await confirm(`CAUTION: Are you absolutely sure you want to finalize offboarding for ${empName}? This will immediately revoke all portal access, delete their active profile, and safely archive their historical records.`)) {
-      return;
-    }
-
-    setLoading(true);
-    setError('');
-    setStatusMsg('');
-    try {
-      const res = await api.offboarding.deleteEmployee(employeeId);
-      setStatusMsg(res.message || 'Employee safely deleted and archived.');
-      fetchEmployees();
-    } catch (err) {
-      setError(err.message || 'Failed to finalize offboarding.');
-    } finally {
-      setLoading(false);
-    }
+  const handleDeleteEmployee = (employeeId, empName) => {
+    setConfirmConfig({
+      isOpen: true,
+      title: 'Finalize Offboarding & Archive',
+      message: `CAUTION: Are you absolutely sure you want to finalize offboarding for ${empName}?\n\nThis will revoke portal access, remove active profile, and move records to secure storage.`,
+      confirmText: 'Finalize Offboarding',
+      type: 'danger',
+      onConfirm: async () => {
+        closeConfirm();
+        setLoading(true);
+        setError('');
+        setStatusMsg('');
+        try {
+          const res = await api.offboarding.deleteEmployee(employeeId);
+          setStatusMsg(res.message || 'Employee safely deleted and archived.');
+          fetchEmployees();
+        } catch (err) {
+          setError(err.message || 'Failed to finalize offboarding.');
+        } finally {
+          setLoading(false);
+        }
+      },
+      onCancel: closeConfirm
+    });
   };
 
-  const handleSubmitNoticePeriod = async (e) => {
+  const handleSubmitNoticePeriod = (e) => {
     e.preventDefault();
-    setLoading(true);
-    setError('');
-    setStatusMsg('');
-    try {
-      await api.offboarding.submitNotice(user.id, {
-        serve_notice: serveNotice,
-        duration: serveNotice ? parseInt(noticeDuration) || 0 : 0,
-        unit: noticeUnit
-      });
-      setStatusMsg('Notice period details submitted successfully.');
-      fetchMyOffboardingStatus();
-    } catch (err) {
-      setError(err.message || 'Failed to submit notice period.');
-    } finally {
-      setLoading(false);
-    }
+    setConfirmConfig({
+      isOpen: true,
+      title: 'Submit Notice Period Details',
+      message: `Are you sure you want to submit your notice period details (${serveNotice ? `${noticeDuration} ${noticeUnit}` : 'No notice period'})?`,
+      confirmText: 'Submit Details',
+      type: 'warning',
+      onConfirm: async () => {
+        closeConfirm();
+        setLoading(true);
+        setError('');
+        setStatusMsg('');
+        try {
+          await api.offboarding.submitNotice(user.id, {
+            serve_notice: serveNotice,
+            duration: serveNotice ? parseInt(noticeDuration) || 0 : 0,
+            unit: noticeUnit
+          });
+          setStatusMsg('Notice period details submitted successfully.');
+          fetchMyOffboardingStatus();
+        } catch (err) {
+          setError(err.message || 'Failed to submit notice details.');
+        } finally {
+          setLoading(false);
+        }
+      },
+      onCancel: closeConfirm
+    });
   };
 
   // List of departments dynamically built
@@ -563,6 +628,7 @@ export default function Offboarding({ activeTenant, user }) {
   return (
     <div className="attendance-container">
       {isAdmin ? renderAdminView() : renderEmployeeView()}
+      <ConfirmModal {...confirmConfig} />
     </div>
   );
 }

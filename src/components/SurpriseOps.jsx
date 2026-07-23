@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../utils/api';
+import ConfirmModal from './ConfirmModal';
 import { Sparkles, Send, Plus, Check, Award, Gift, Trash2, FileText, User, Mail, Calendar, Upload, ChevronDown, ChevronUp, Users, Archive } from 'lucide-react';
 
 export default function SurpriseOps() {
@@ -13,6 +14,21 @@ export default function SurpriseOps() {
   const [status, setStatus] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+
+  // Confirm Modal state
+  const [confirmConfig, setConfirmConfig] = useState({
+    isOpen: false,
+    title: '',
+    message: '',
+    confirmText: 'Confirm',
+    cancelText: 'Cancel',
+    type: 'info',
+    onConfirm: () => {}
+  });
+
+  const closeConfirm = () => {
+    setConfirmConfig(prev => ({ ...prev, isOpen: false }));
+  };
 
   // --- Appreciation States ---
   const [appreciations, setAppreciations] = useState([]);
@@ -58,6 +74,50 @@ export default function SurpriseOps() {
     } catch (err) {
       console.error('Failed to fetch appreciations:', err);
     }
+  };
+
+  const handleDownloadCertificate = (certUrl, title = 'Appreciation_Certificate') => {
+    if (!certUrl) return;
+
+    if (certUrl.startsWith('data:')) {
+      try {
+        const parts = certUrl.split(',');
+        const mimeMatch = parts[0].match(/:(.*?);/);
+        const mimeType = mimeMatch ? mimeMatch[1] : 'application/pdf';
+        const base64Data = parts[1];
+        
+        const byteCharacters = atob(base64Data);
+        const byteNumbers = new Array(byteCharacters.length);
+        for (let i = 0; i < byteCharacters.length; i++) {
+          byteNumbers[i] = byteCharacters.charCodeAt(i);
+        }
+        const byteArray = new Uint8Array(byteNumbers);
+        const blob = new Blob([byteArray], { type: mimeType });
+        const blobUrl = URL.createObjectURL(blob);
+
+        const a = document.createElement('a');
+        a.href = blobUrl;
+        a.download = `${title}_Certificate.pdf`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        setTimeout(() => URL.revokeObjectURL(blobUrl), 10000);
+        return;
+      } catch (err) {
+        console.error('Error downloading certificate:', err);
+      }
+    }
+
+    let targetUrl = certUrl;
+    if (!certUrl.startsWith('http://') && !certUrl.startsWith('https://')) {
+      targetUrl = `https://hrms-backend-gamma.vercel.app${certUrl}`;
+    }
+    const a = document.createElement('a');
+    a.href = targetUrl;
+    a.download = `${title}_Certificate.pdf`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
   };
 
   const fetchCoupons = async () => {
@@ -115,162 +175,237 @@ export default function SurpriseOps() {
     return deptEmpIds.every(id => announcementRecipients.includes(id));
   };
 
-  const handleIssueAppreciation = async (e) => {
+  const handleIssueAppreciation = (e) => {
     e.preventDefault();
     if (!nameOfEmployee || !emailOfEmployee || !apprDate || !apprReason) return;
-    
-    setLoading(true);
-    setStatus('Issuing appreciation award and saving broadcast list...');
-    setError('');
-    
-    try {
-      const formData = new FormData();
-      formData.append('employee_name', nameOfEmployee);
-      formData.append('employee_email', emailOfEmployee);
-      formData.append('date', apprDate);
-      formData.append('reason', apprReason);
-      formData.append('type', apprType);
-      formData.append('announcement_recipients', JSON.stringify(announcementRecipients));
-      
-      if (apprType === 'CERTIFICATE' && certificateFile) {
-        formData.append('certificate', certificateFile);
-      }
-      
-      await api.surpriseOps.createAppreciation(formData);
-      
-      // Reset Form
-      setSelectedEmpIdAppr('');
-      setNameOfEmployee('');
-      setEmailOfEmployee('');
-      setApprReason('');
-      setCertificateFile(null);
-      setAnnouncementRecipients([]);
-      
-      setStatus('Appreciation award successfully registered in directory!');
-      setTimeout(() => setStatus(''), 4000);
-      
-      fetchAppreciations();
-    } catch (err) {
-      setError(`Failed to issue appreciation: ${err.message}`);
-    } finally {
-      setLoading(false);
-    }
+
+    setConfirmConfig({
+      isOpen: true,
+      title: 'Issue Appreciation Award',
+      message: `Are you sure you want to issue an appreciation award to ${nameOfEmployee} (${emailOfEmployee})?`,
+      confirmText: 'Issue Award',
+      type: 'info',
+      onConfirm: async () => {
+        closeConfirm();
+        setLoading(true);
+        setStatus('Issuing appreciation award and saving broadcast list...');
+        setError('');
+        
+        try {
+          const formData = new FormData();
+          formData.append('employee_name', nameOfEmployee);
+          formData.append('employee_email', emailOfEmployee);
+          formData.append('date', apprDate);
+          formData.append('reason', apprReason);
+          formData.append('type', apprType);
+          formData.append('announcement_recipients', JSON.stringify(announcementRecipients));
+          
+          if (apprType === 'CERTIFICATE' && certificateFile) {
+            formData.append('certificate', certificateFile);
+          }
+          
+          await api.surpriseOps.createAppreciation(formData);
+          
+          // Reset Form
+          setSelectedEmpIdAppr('');
+          setNameOfEmployee('');
+          setEmailOfEmployee('');
+          setApprReason('');
+          setCertificateFile(null);
+          setAnnouncementRecipients([]);
+          
+          setStatus('Appreciation award successfully registered in directory!');
+          setTimeout(() => setStatus(''), 4000);
+          
+          fetchAppreciations();
+        } catch (err) {
+          setError(`Failed to issue appreciation: ${err.message}`);
+        } finally {
+          setLoading(false);
+        }
+      },
+      onCancel: closeConfirm
+    });
   };
 
-  const handleSendAppreciation = async (id) => {
-    setLoading(true);
-    setStatus('Dispatching recognition and announcement emails manually...');
-    setError('');
-    try {
-      await api.surpriseOps.sendAppreciation(id);
-      setStatus('Emails successfully dispatched to employee and announcements list!');
-      setTimeout(() => setStatus(''), 4000);
-      fetchAppreciations();
-    } catch (err) {
-      setError(`Failed to dispatch emails: ${err.message}`);
-    } finally {
-      setLoading(false);
-    }
+  const handleSendAppreciation = (id, empName = 'Employee') => {
+    setConfirmConfig({
+      isOpen: true,
+      title: 'Send Recognition Email',
+      message: `Are you sure you want to dispatch appreciation recognition email for ${empName}?`,
+      confirmText: 'Send Email',
+      type: 'info',
+      onConfirm: async () => {
+        closeConfirm();
+        setLoading(true);
+        setStatus('Dispatching recognition and announcement emails manually...');
+        setError('');
+        try {
+          await api.surpriseOps.sendAppreciation(id);
+          setStatus('Emails successfully dispatched to employee and announcements list!');
+          setTimeout(() => setStatus(''), 4000);
+          fetchAppreciations();
+        } catch (err) {
+          setError(`Failed to dispatch emails: ${err.message}`);
+        } finally {
+          setLoading(false);
+        }
+      },
+      onCancel: closeConfirm
+    });
   };
 
-  const handleDeleteAppreciation = async (id) => {
-    if (!await confirm("Are you sure you want to permanently delete this appreciation log?")) return;
-    setLoading(true);
-    setError('');
-    try {
-      await api.surpriseOps.deleteAppreciation(id);
-      setStatus('Appreciation record removed.');
-      setTimeout(() => setStatus(''), 3000);
-      fetchAppreciations();
-    } catch (err) {
-      setError(`Failed to delete: ${err.message}`);
-    } finally {
-      setLoading(false);
-    }
+  const handleDeleteAppreciation = (id, empName = 'Employee') => {
+    setConfirmConfig({
+      isOpen: true,
+      title: 'Delete Appreciation Record',
+      message: `Are you sure you want to permanently delete this appreciation log for ${empName}?`,
+      confirmText: 'Delete Record',
+      type: 'danger',
+      onConfirm: async () => {
+        closeConfirm();
+        setLoading(true);
+        setError('');
+        try {
+          await api.surpriseOps.deleteAppreciation(id);
+          setStatus('Appreciation record removed.');
+          setTimeout(() => setStatus(''), 3000);
+          fetchAppreciations();
+        } catch (err) {
+          setError(`Failed to delete: ${err.message}`);
+        } finally {
+          setLoading(false);
+        }
+      },
+      onCancel: closeConfirm
+    });
   };
 
   // --- Monetary Actions ---
-  const handleAddCoupon = async (e) => {
+  const handleAddCoupon = (e) => {
     e.preventDefault();
     if (!code || !brand || !amount) return;
-    setLoading(true);
-    setError('');
-    setStatus('');
-    try {
-      await api.surpriseOps.createCoupon({ code, brand, amount: parseFloat(amount) });
-      setCode('');
-      setBrand('');
-      setAmount('');
-      setStatus('Incentive voucher added to inventory!');
-      setTimeout(() => setStatus(''), 4000);
-      fetchCoupons();
-    } catch (err) {
-      setError(`Failed to add: ${err.message}`);
-    } finally {
-      setLoading(false);
-    }
+
+    setConfirmConfig({
+      isOpen: true,
+      title: 'Add Incentive Voucher',
+      message: `Are you sure you want to add voucher "${code}" (${brand} - ₹${amount}) to inventory?`,
+      confirmText: 'Add Voucher',
+      type: 'info',
+      onConfirm: async () => {
+        closeConfirm();
+        setLoading(true);
+        setError('');
+        setStatus('');
+        try {
+          await api.surpriseOps.createCoupon({ code, brand, amount: parseFloat(amount) });
+          setCode('');
+          setBrand('');
+          setAmount('');
+          setStatus('Incentive voucher added to inventory!');
+          setTimeout(() => setStatus(''), 4000);
+          fetchCoupons();
+        } catch (err) {
+          setError(`Failed to add: ${err.message}`);
+        } finally {
+          setLoading(false);
+        }
+      },
+      onCancel: closeConfirm
+    });
   };
 
-  const handleSendCoupon = async (couponId) => {
+  const handleSendCoupon = (couponId) => {
     const targetPersonalEmail = selectedEmployees[couponId];
     if (!targetPersonalEmail) {
-      await alert("Please select a recipient employee first.");
+      alert("Please select a recipient employee first.");
       return;
     }
-    
-    setLoading(true);
-    setStatus('Dispatching incentive voucher to employee\'s personal email...');
-    setError('');
-    try {
-      await api.surpriseOps.send(couponId, targetPersonalEmail);
-      setStatus('Voucher successfully delivered to personal mailbox!');
-      setTimeout(() => setStatus(''), 4000);
-      
-      // Clear selected email for this coupon
-      setSelectedEmployees(prev => ({ ...prev, [couponId]: '' }));
-      fetchCoupons();
-    } catch (err) {
-      setError(`Failed to deliver: ${err.message}`);
-    } finally {
-      setLoading(false);
-    }
+
+    setConfirmConfig({
+      isOpen: true,
+      title: 'Send Incentive Voucher',
+      message: `Are you sure you want to send this voucher to ${targetPersonalEmail}?`,
+      confirmText: 'Send Voucher',
+      type: 'info',
+      onConfirm: async () => {
+        closeConfirm();
+        setLoading(true);
+        setStatus('Dispatching incentive voucher to employee\'s personal email...');
+        setError('');
+        try {
+          await api.surpriseOps.send(couponId, targetPersonalEmail);
+          setStatus('Voucher successfully delivered to personal mailbox!');
+          setTimeout(() => setStatus(''), 4000);
+          
+          setSelectedEmployees(prev => ({ ...prev, [couponId]: '' }));
+          fetchCoupons();
+        } catch (err) {
+          setError(`Failed to deliver: ${err.message}`);
+        } finally {
+          setLoading(false);
+        }
+      },
+      onCancel: closeConfirm
+    });
   };
 
   const handleSelectEmployeeMonetary = (couponId, personalEmail) => {
     setSelectedEmployees(prev => ({ ...prev, [couponId]: personalEmail }));
   };
 
-  const handleArchiveCoupon = async (couponId) => {
-    setLoading(true);
-    setStatus('Archiving coupon...');
-    setError('');
-    try {
-      await api.surpriseOps.archiveCoupon(couponId);
-      setStatus('Coupon successfully archived!');
-      setTimeout(() => setStatus(''), 4000);
-      fetchCoupons();
-    } catch (err) {
-      setError(`Failed to archive: ${err.message}`);
-    } finally {
-      setLoading(false);
-    }
+  const handleArchiveCoupon = (couponId) => {
+    setConfirmConfig({
+      isOpen: true,
+      title: 'Archive Voucher',
+      message: 'Are you sure you want to move this voucher code to the archive?',
+      confirmText: 'Archive Voucher',
+      type: 'warning',
+      onConfirm: async () => {
+        closeConfirm();
+        setLoading(true);
+        setStatus('Archiving coupon...');
+        setError('');
+        try {
+          await api.surpriseOps.archiveCoupon(couponId);
+          setStatus('Coupon successfully archived!');
+          setTimeout(() => setStatus(''), 4000);
+          fetchCoupons();
+        } catch (err) {
+          setError(`Failed to archive: ${err.message}`);
+        } finally {
+          setLoading(false);
+        }
+      },
+      onCancel: closeConfirm
+    });
   };
 
-  const handleDeleteCoupon = async (couponId) => {
-    if (!await confirm("Are you sure you want to delete this coupon forever from the archive? This action is irreversible.")) return;
-    setLoading(true);
-    setStatus('Deleting coupon forever...');
-    setError('');
-    try {
-      await api.surpriseOps.deleteCoupon(couponId);
-      setStatus('Coupon successfully deleted forever!');
-      setTimeout(() => setStatus(''), 4000);
-      fetchCoupons();
-    } catch (err) {
-      setError(`Failed to delete: ${err.message}`);
-    } finally {
-      setLoading(false);
-    }
+  const handleDeleteCoupon = (couponId) => {
+    setConfirmConfig({
+      isOpen: true,
+      title: 'Permanently Delete Voucher',
+      message: 'WARNING: Are you sure you want to delete this coupon forever from the archive? This action cannot be undone.',
+      confirmText: 'Permanently Delete',
+      type: 'danger',
+      onConfirm: async () => {
+        closeConfirm();
+        setLoading(true);
+        setStatus('Deleting coupon forever...');
+        setError('');
+        try {
+          await api.surpriseOps.deleteCoupon(couponId);
+          setStatus('Coupon successfully deleted forever!');
+          setTimeout(() => setStatus(''), 4000);
+          fetchCoupons();
+        } catch (err) {
+          setError(`Failed to delete: ${err.message}`);
+        } finally {
+          setLoading(false);
+        }
+      },
+      onCancel: closeConfirm
+    });
   };
 
   return (
@@ -648,14 +783,12 @@ export default function SurpriseOps() {
                           <span>📅 Award Date: <strong>{a.date}</strong></span>
                           <span>📢 Broadcase Recipient Count: <strong style={{ color: 'var(--brand-blue)' }}>{announcementCount} employees</strong></span>
                           {a.certificate_url && (
-                            <a 
-                              href={a.certificate_url} 
-                              target="_blank" 
-                              rel="noreferrer"
-                              style={{ display: 'flex', alignItems: 'center', gap: '4px', color: '#10b981', fontWeight: 'bold', textDecoration: 'none', marginTop: '2px' }}
+                            <button 
+                              onClick={() => handleDownloadCertificate(a.certificate_url, a.title)} 
+                              style={{ display: 'flex', alignItems: 'center', gap: '4px', color: '#10b981', fontWeight: 'bold', background: 'none', border: 'none', padding: 0, cursor: 'pointer', marginTop: '2px', fontSize: '11px' }}
                             >
                               <FileText size={14} /> Download PDF Certificate
-                            </a>
+                            </button>
                           )}
                         </div>
 
@@ -947,6 +1080,7 @@ export default function SurpriseOps() {
           </div>
         </div>
       )}
+      <ConfirmModal {...confirmConfig} />
     </div>
   );
 }
