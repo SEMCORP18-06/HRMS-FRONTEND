@@ -1255,6 +1255,8 @@ export default function EventPlanner({ activeTenant, user }) {
         </div>
       )}
 
+      {/* Confirm Modal */}
+      <ConfirmModal {...confirmConfig} />
     </div>
   );
 }
