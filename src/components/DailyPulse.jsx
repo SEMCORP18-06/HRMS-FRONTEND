@@ -18,6 +18,14 @@ export default function DailyPulse() {
   const [selectedPulse, setSelectedPulse] = useState(null);
   const [recipientQuery, setRecipientQuery] = useState('');
 
+  // Quote Library State
+  const [quoteLibrary, setQuoteLibrary] = useState([]);
+  const [showLibraryModal, setShowLibraryModal] = useState(false);
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [newQuoteText, setNewQuoteText] = useState('');
+  const [newQuoteAuthor, setNewQuoteAuthor] = useState('');
+  const [librarySearchQuery, setLibrarySearchQuery] = useState('');
+
   // Confirm Modal state
   const [confirmConfig, setConfirmConfig] = useState({
     isOpen: false,
@@ -38,7 +46,33 @@ export default function DailyPulse() {
 
   useEffect(() => {
     fetchSchedule();
+    fetchQuoteLibrary();
   }, []);
+
+  const fetchQuoteLibrary = async () => {
+    try {
+      const data = await api.dailyPulse.quotes();
+      setQuoteLibrary(Array.isArray(data) ? data : []);
+    } catch (err) {
+      console.error("Failed to fetch quote library:", err);
+    }
+  };
+
+  const handleAddQuote = async (e) => {
+    e.preventDefault();
+    if (!newQuoteText.trim()) return;
+    try {
+      await api.dailyPulse.createQuote(newQuoteText.trim(), newQuoteAuthor.trim() || 'Unknown');
+      setNewQuoteText('');
+      setNewQuoteAuthor('');
+      setShowAddModal(false);
+      setStatus('Custom quote added successfully to library!');
+      setTimeout(() => setStatus(''), 4000);
+      fetchQuoteLibrary();
+    } catch (err) {
+      setStatus(`Failed to add quote: ${err.message}`);
+    }
+  };
 
   const fetchSchedule = async () => {
     setLoading(true);
@@ -140,9 +174,17 @@ export default function DailyPulse() {
             </p>
           </div>
         </div>
-        <button className="btn-primary" onClick={handleTriggerDailyPulse} style={{ padding: '12px 24px', fontSize: '18px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <Send size={18} /> Trigger Dispatch Now
-        </button>
+        <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+          <button className="back-btn" onClick={() => setShowLibraryModal(true)} style={{ padding: '12px 20px', fontSize: '16px', display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 'bold' }}>
+            <Quote size={18} style={{ color: 'var(--brand-blue)' }} /> Library ({quoteLibrary.length} Quotes)
+          </button>
+          <button className="back-btn" onClick={() => setShowAddModal(true)} style={{ padding: '12px 20px', fontSize: '16px', display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 'bold' }}>
+            <Plus size={18} style={{ color: '#10b981' }} /> Add Quote
+          </button>
+          <button className="btn-primary" onClick={handleTriggerDailyPulse} style={{ padding: '12px 24px', fontSize: '18px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <Send size={18} /> Trigger Dispatch Now
+          </button>
+        </div>
       </div>
 
       {status && (
@@ -429,6 +471,121 @@ export default function DailyPulse() {
 
         </div>
       </div>
+      {/* ADD QUOTE MODAL */}
+      {showAddModal && (
+        <div className="modal-backdrop">
+          <div className="modal-content-popup" style={{ maxWidth: '520px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+              <h3 style={{ fontSize: '22px', fontWeight: 'bold', color: 'var(--text-primary)', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Plus size={20} style={{ color: '#10b981' }} /> Add Custom Quote to Library
+              </h3>
+              <button onClick={() => setShowAddModal(false)} className="back-btn" style={{ padding: '4px 10px', fontSize: '13px' }}>✕</button>
+            </div>
+
+            <form onSubmit={handleAddQuote} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <div className="form-group">
+                <label style={{ fontWeight: 'bold' }}>Quote Text</label>
+                <textarea 
+                  rows={4} 
+                  required
+                  placeholder="Enter inspiring quote text..."
+                  value={newQuoteText}
+                  onChange={(e) => setNewQuoteText(e.target.value)}
+                  style={{ width: '100%', padding: '12px', borderRadius: '10px', background: 'rgba(0,0,0,0.2)', border: '1px solid var(--border-glass)', color: 'var(--text-primary)', fontSize: '15px', resize: 'vertical' }}
+                />
+              </div>
+
+              <div className="form-group">
+                <label style={{ fontWeight: 'bold' }}>Author / Speaker</label>
+                <input 
+                  type="text"
+                  placeholder="e.g. Steve Jobs, Winston Churchill, Anonymous"
+                  value={newQuoteAuthor}
+                  onChange={(e) => setNewQuoteAuthor(e.target.value)}
+                  style={{ width: '100%', padding: '12px', borderRadius: '10px', background: 'rgba(0,0,0,0.2)', border: '1px solid var(--border-glass)', color: 'var(--text-primary)', fontSize: '15px' }}
+                />
+              </div>
+
+              <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end', marginTop: '10px' }}>
+                <button type="button" onClick={() => setShowAddModal(false)} className="back-btn" style={{ padding: '10px 20px', borderRadius: '8px' }}>
+                  Cancel
+                </button>
+                <button type="submit" className="btn-primary" style={{ padding: '10px 24px', borderRadius: '8px', fontWeight: 'bold' }}>
+                  Save Quote
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* BROWSE QUOTE LIBRARY MODAL */}
+      {showLibraryModal && (
+        <div className="modal-backdrop">
+          <div className="modal-content-popup" style={{ maxWidth: '750px', maxHeight: '85vh', display: 'flex', flexDirection: 'column' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '18px' }}>
+              <div>
+                <h3 style={{ fontSize: '24px', fontWeight: 'bold', color: 'var(--text-primary)', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <Quote size={22} style={{ color: 'var(--brand-blue)' }} /> Quote Library ({quoteLibrary.length} Quotes)
+                </h3>
+                <p style={{ color: 'var(--text-secondary)', fontSize: '14px', margin: '4px 0 0 0' }}>
+                  Curated motivational, leadership, and workplace inspiration quotes available for Daily Pulse broadcasts.
+                </p>
+              </div>
+              <button onClick={() => setShowLibraryModal(false)} className="back-btn" style={{ padding: '4px 10px', fontSize: '13px' }}>✕</button>
+            </div>
+
+            {/* Library Search Bar */}
+            <div style={{ position: 'relative', marginBottom: '15px' }}>
+              <Search size={18} style={{ position: 'absolute', left: '12px', top: '12px', color: 'rgba(255,255,255,0.4)' }} />
+              <input 
+                type="text" 
+                placeholder="Search quotes by author or text..."
+                value={librarySearchQuery}
+                onChange={(e) => setLibrarySearchQuery(e.target.value)}
+                style={{
+                  width: '100%',
+                  background: 'rgba(0,0,0,0.2)',
+                  border: '1px solid var(--border-glass)',
+                  borderRadius: '10px',
+                  color: 'var(--text-primary)',
+                  padding: '10px 12px 10px 40px',
+                  fontSize: '15px'
+                }}
+              />
+            </div>
+
+            {/* Quotes List */}
+            <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '12px', paddingRight: '6px' }}>
+              {quoteLibrary
+                .filter(q => 
+                  q.text.toLowerCase().includes(librarySearchQuery.toLowerCase()) || 
+                  (q.author && q.author.toLowerCase().includes(librarySearchQuery.toLowerCase()))
+                )
+                .map((q, idx) => (
+                  <div key={`lib-q-${idx}`} style={{ padding: '14px 18px', background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-glass)', borderRadius: '10px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                    <p style={{ fontStyle: 'italic', color: 'var(--text-primary)', fontSize: '15px', margin: 0, lineHeight: '1.5' }}>
+                      "{q.text}"
+                    </p>
+                    <span style={{ textAlign: 'right', color: 'var(--brand-blue)', fontWeight: 'bold', fontSize: '13px' }}>
+                      — {q.author || 'Unknown'}
+                    </span>
+                  </div>
+                ))}
+            </div>
+
+            <div style={{ marginTop: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid var(--border-glass)', paddingTop: '12px' }}>
+              <span style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>
+                Showing {quoteLibrary.filter(q => q.text.toLowerCase().includes(librarySearchQuery.toLowerCase()) || (q.author && q.author.toLowerCase().includes(librarySearchQuery.toLowerCase()))).length} of {quoteLibrary.length} quotes
+              </span>
+              <button onClick={() => setShowLibraryModal(false)} className="back-btn" style={{ padding: '8px 20px', borderRadius: '8px', fontSize: '14px' }}>
+                Close Library
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <ConfirmModal {...confirmConfig} />
     </div>
   );
