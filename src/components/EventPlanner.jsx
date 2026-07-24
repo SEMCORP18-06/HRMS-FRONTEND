@@ -49,6 +49,7 @@ export default function EventPlanner({ activeTenant, user }) {
   const [eventDate, setEventDate] = useState('');
   const [eventTime, setEventTime] = useState('');
   const [location, setLocation] = useState('');
+  const [middleTab, setMiddleTab] = useState('create'); // 'create' | 'holidays'
   
   // Employee Selection States
   const [employees, setEmployees] = useState([]);
@@ -586,6 +587,10 @@ export default function EventPlanner({ activeTenant, user }) {
                     {dayEvents.map((e, i) => (
                       <div 
                         key={i} 
+                        onClick={(ev) => {
+                          ev.stopPropagation();
+                          if (isAdmin) handleDeleteEvent(e.id, e.title);
+                        }}
                         style={{ 
                           fontSize: '9px', 
                           fontWeight: '800', 
@@ -596,8 +601,10 @@ export default function EventPlanner({ activeTenant, user }) {
                           textOverflow: 'ellipsis',
                           background: 'rgba(236, 72, 153, 0.15)',
                           color: '#ec4899',
-                          textAlign: 'center'
+                          textAlign: 'center',
+                          cursor: isAdmin ? 'pointer' : 'default'
                         }}
+                        title={isAdmin ? 'Click to delete event' : e.title}
                       >
                         📅 {e.title}
                       </div>
@@ -635,9 +642,39 @@ export default function EventPlanner({ activeTenant, user }) {
           flexDirection: 'column',
           boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)'
         }}>
-          {!isAdmin ? (
+          {isAdmin && (
+            <div style={{ display: 'flex', borderBottom: '1px solid var(--border-glass)', marginBottom: '16px', gap: '12px' }}>
+              <button
+                onClick={() => setMiddleTab('create')}
+                style={{
+                  background: 'transparent', border: 'none',
+                  borderBottom: middleTab === 'create' ? '3px solid var(--brand-green)' : '3px solid transparent',
+                  color: middleTab === 'create' ? 'var(--text-primary)' : 'var(--text-secondary)',
+                  fontSize: '13px', fontWeight: '800', padding: '6px 2px', cursor: 'pointer',
+                  display: 'flex', alignItems: 'center', gap: '6px'
+                }}
+              >
+                <Sparkles size={15} style={{ color: 'var(--brand-green)' }} />
+                Schedule Event
+              </button>
+              <button
+                onClick={() => setMiddleTab('holidays')}
+                style={{
+                  background: 'transparent', border: 'none',
+                  borderBottom: middleTab === 'holidays' ? '3px solid #3b82f6' : '3px solid transparent',
+                  color: middleTab === 'holidays' ? 'var(--text-primary)' : 'var(--text-secondary)',
+                  fontSize: '13px', fontWeight: '800', padding: '6px 2px', cursor: 'pointer',
+                  display: 'flex', alignItems: 'center', gap: '6px'
+                }}
+              >
+                🌴 Manage Holidays ({holidays.length})
+              </button>
+            </div>
+          )}
+
+          {(!isAdmin || middleTab === 'holidays') ? (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', flex: 1 }}>
-              <h3 style={{ fontSize: '18px', fontWeight: '800', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '8px', margin: 0 }}>
+              <h3 style={{ fontSize: '17px', fontWeight: '800', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '8px', margin: 0 }}>
                 <Sparkles size={18} style={{ color: 'var(--brand-green)' }} />
                 Official Corporate Holidays
               </h3>
@@ -653,9 +690,29 @@ export default function EventPlanner({ activeTenant, user }) {
                         <div style={{ fontWeight: '800', fontSize: '14px', color: 'var(--text-primary)' }}>{h.name}</div>
                         <div style={{ fontSize: '11px', color: 'var(--text-secondary)', marginTop: '2px' }}>{h.date}</div>
                       </div>
-                      <span style={{ fontSize: '11px', fontWeight: '800', padding: '4px 10px', borderRadius: '8px', background: h.type === 'National' ? 'rgba(22,163,74,0.15)' : 'rgba(59,130,246,0.15)', color: h.type === 'National' ? '#16a34a' : '#3b82f6', border: `1px solid ${h.type === 'National' ? 'rgba(22,163,74,0.3)' : 'rgba(59,130,246,0.3)'}` }}>
-                        {h.type || 'Holiday'}
-                      </span>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <span style={{ fontSize: '11px', fontWeight: '800', padding: '4px 9px', borderRadius: '8px', background: h.type === 'National' ? 'rgba(22,163,74,0.15)' : 'rgba(59,130,246,0.15)', color: h.type === 'National' ? '#16a34a' : '#3b82f6', border: `1px solid ${h.type === 'National' ? 'rgba(22,163,74,0.3)' : 'rgba(59,130,246,0.3)'}` }}>
+                          {h.type || 'Holiday'}
+                        </span>
+                        {isAdmin && (
+                          <button
+                            onClick={() => handleDeleteHoliday(h.id, h.name)}
+                            style={{
+                              background: 'rgba(239, 68, 68, 0.12)',
+                              color: '#ef4444',
+                              border: '1px solid rgba(239, 68, 68, 0.3)',
+                              borderRadius: '6px',
+                              padding: '4px 10px',
+                              fontSize: '11px',
+                              fontWeight: '800',
+                              cursor: 'pointer'
+                            }}
+                            title="Delete holiday from calendar"
+                          >
+                            Delete
+                          </button>
+                        )}
+                      </div>
                     </div>
                   ))
                 )}
@@ -983,45 +1040,44 @@ export default function EventPlanner({ activeTenant, user }) {
                             {ev.title}
                           </h4>
                           
-                          {/* Manual Archive Button or Delete Forever Button (Admin only) */}
+                          {/* Manual Archive & Delete Buttons (Admin only) */}
                           {isAdmin && (
-                            ev.status !== 'ARCHIVED' ? (
+                            <div style={{ display: 'flex', gap: '6px' }}>
+                              {ev.status !== 'ARCHIVED' && (
+                                <button
+                                  onClick={() => handleArchiveEvent(ev.id)}
+                                  style={{
+                                    background: 'rgba(245, 158, 11, 0.1)',
+                                    color: '#f59e0b',
+                                    border: '1px solid rgba(245, 158, 11, 0.3)',
+                                    borderRadius: '6px',
+                                    padding: '3px 8px',
+                                    fontSize: '11px',
+                                    fontWeight: '700',
+                                    cursor: 'pointer'
+                                  }}
+                                  title="Archive reminder"
+                                >
+                                  Archive
+                                </button>
+                              )}
                               <button
-                                onClick={() => handleArchiveEvent(ev.id)}
+                                onClick={() => handleDeleteEvent(ev.id, ev.title)}
                                 style={{
-                                  background: 'rgba(239, 68, 68, 0.08)',
+                                  background: 'rgba(239, 68, 68, 0.12)',
                                   color: '#ef4444',
-                                  border: '1px solid rgba(239, 68, 68, 0.2)',
-                                  borderRadius: '6px',
-                                  padding: '3px 8px',
-                                  fontSize: '11px',
-                                  fontWeight: '700',
-                                  cursor: 'pointer',
-                                  transition: 'all 0.2s'
-                                }}
-                                title="Archive reminder early"
-                              >
-                                Archive
-                              </button>
-                            ) : (
-                              <button
-                                onClick={() => handleDeleteEvent(ev.id)}
-                                style={{
-                                  background: 'rgba(239, 68, 68, 0.15)',
-                                  color: '#ef4444',
-                                  border: '1.5px solid rgba(239, 68, 68, 0.3)',
+                                  border: '1px solid rgba(239, 68, 68, 0.3)',
                                   borderRadius: '6px',
                                   padding: '3px 8px',
                                   fontSize: '11px',
                                   fontWeight: '800',
-                                  cursor: 'pointer',
-                                  transition: 'all 0.2s'
+                                  cursor: 'pointer'
                                 }}
-                                title="Delete reminder forever"
+                                title="Delete event from calendar"
                               >
-                                Delete Forever
+                                {ev.status === 'ARCHIVED' ? 'Delete Forever' : 'Delete'}
                               </button>
-                            )
+                            </div>
                           )}
                         </div>
                         
