@@ -19,6 +19,23 @@ import {
   Eye
 } from 'lucide-react';
 
+const formatDateDDMMYYYY = (dateInput) => {
+  if (!dateInput) return '';
+  if (typeof dateInput === 'string') {
+    const cleanStr = dateInput.split('T')[0];
+    const parts = cleanStr.split('-');
+    if (parts.length === 3 && parts[0].length === 4) {
+      return `${parts[2].padStart(2, '0')}/${parts[1].padStart(2, '0')}/${parts[0]}`;
+    }
+  }
+  const d = new Date(dateInput);
+  if (isNaN(d.getTime())) return String(dateInput);
+  const day = String(d.getDate()).padStart(2, '0');
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const year = d.getFullYear();
+  return `${day}/${month}/${year}`;
+};
+
 export default function EventPlanner({ activeTenant, user }) {
   const isAdmin = user?.role === 'Admin (HR)';
   const sseRef = React.useRef(null);
@@ -121,7 +138,7 @@ export default function EventPlanner({ activeTenant, user }) {
     setConfirmConfig({
       isOpen: true,
       title: 'Add New Holiday',
-      message: `Are you sure you want to add holiday "${newHolidayName}" on ${addingHolidayDate}?`,
+      message: `Are you sure you want to add holiday "${newHolidayName}" on ${formatDateDDMMYYYY(addingHolidayDate)}?`,
       confirmText: 'Add Holiday',
       type: 'info',
       onConfirm: async () => {
@@ -305,7 +322,7 @@ export default function EventPlanner({ activeTenant, user }) {
     setConfirmConfig({
       isOpen: true,
       title: 'Schedule Corporate Event',
-      message: `Are you sure you want to schedule "${title}" on ${eventDate} at ${eventTime} for ${selectedEmployees.length} employee(s)?`,
+      message: `Are you sure you want to schedule "${title}" on ${formatDateDDMMYYYY(eventDate)} at ${eventTime} for ${selectedEmployees.length} employee(s)?`,
       confirmText: 'Schedule Event',
       type: 'info',
       onConfirm: async () => {
@@ -688,7 +705,7 @@ export default function EventPlanner({ activeTenant, user }) {
                     <div key={h.id || h.date + h.name} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(255,255,255,0.02)', padding: '12px 16px', borderRadius: '10px', border: '1px solid var(--border-glass)' }}>
                       <div>
                         <div style={{ fontWeight: '800', fontSize: '14px', color: 'var(--text-primary)' }}>{h.name}</div>
-                        <div style={{ fontSize: '11px', color: 'var(--text-secondary)', marginTop: '2px' }}>{h.date}</div>
+                        <div style={{ fontSize: '11px', color: 'var(--text-secondary)', marginTop: '2px' }}>{formatDateDDMMYYYY(h.date)}</div>
                       </div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                         <span style={{ fontSize: '11px', fontWeight: '800', padding: '4px 9px', borderRadius: '8px', background: h.type === 'National' ? 'rgba(22,163,74,0.15)' : 'rgba(59,130,246,0.15)', color: h.type === 'National' ? '#16a34a' : '#3b82f6', border: `1px solid ${h.type === 'National' ? 'rgba(22,163,74,0.3)' : 'rgba(59,130,246,0.3)'}` }}>
@@ -1088,6 +1105,9 @@ export default function EventPlanner({ activeTenant, user }) {
                         )}
 
                         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px', fontSize: '12px', color: 'var(--text-secondary)' }}>
+                          <span style={{ display: 'flex', alignItems: 'center', gap: '4px', fontWeight: '700', color: 'var(--brand-green)' }}>
+                            <CalendarIcon size={12} /> {formatDateDDMMYYYY(ev.start_time)}
+                          </span>
                           <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                             <Clock size={12} /> {timeStr}
                           </span>

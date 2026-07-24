@@ -3,6 +3,23 @@ import { api } from '../utils/api';
 import ConfirmModal from './ConfirmModal';
 import { Gift, Send, Calendar, ChevronLeft, ChevronRight, User, Mail, Briefcase, Award, CheckCircle, Info } from 'lucide-react';
 
+const formatDateDDMMYYYY = (dateInput) => {
+  if (!dateInput) return '';
+  if (typeof dateInput === 'string') {
+    const cleanStr = dateInput.split('T')[0];
+    const parts = cleanStr.split('-');
+    if (parts.length === 3 && parts[0].length === 4) {
+      return `${parts[2].padStart(2, '0')}/${parts[1].padStart(2, '0')}/${parts[0]}`;
+    }
+  }
+  const d = new Date(dateInput);
+  if (isNaN(d.getTime())) return String(dateInput);
+  const day = String(d.getDate()).padStart(2, '0');
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const year = d.getFullYear();
+  return `${day}/${month}/${year}`;
+};
+
 export default function Celebrations() {
   const [allCelebrations, setAllCelebrations] = useState([]);
   const [matches, setMatches] = useState({ birthdays: [], anniversaries: [] });

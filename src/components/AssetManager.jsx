@@ -3,6 +3,23 @@ import { api } from '../utils/api';
 import ConfirmModal from './ConfirmModal';
 import { Cpu, Plus, Laptop, User, Calendar, Tag, ChevronDown, ChevronUp, CheckCircle, AlertCircle, ShoppingBag } from 'lucide-react';
 
+const formatDateDDMMYYYY = (dateInput) => {
+  if (!dateInput) return '';
+  if (typeof dateInput === 'string') {
+    const cleanStr = dateInput.split('T')[0];
+    const parts = cleanStr.split('-');
+    if (parts.length === 3 && parts[0].length === 4) {
+      return `${parts[2].padStart(2, '0')}/${parts[1].padStart(2, '0')}/${parts[0]}`;
+    }
+  }
+  const d = new Date(dateInput);
+  if (isNaN(d.getTime())) return String(dateInput);
+  const day = String(d.getDate()).padStart(2, '0');
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const year = d.getFullYear();
+  return `${day}/${month}/${year}`;
+};
+
 export default function AssetManager({ user }) {
   const [assets, setAssets] = useState([]);
   const [employees, setEmployees] = useState([]);
@@ -450,7 +467,7 @@ export default function AssetManager({ user }) {
                                       <div>
                                         <div style={{ fontSize: '10px', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Checkout Date</div>
                                         <div style={{ fontSize: '13px', fontWeight: '700', color: 'var(--text-primary)', marginTop: '2px' }}>
-                                          {checkout.checkout_date ? new Date(checkout.checkout_date).toLocaleDateString() : 'N/A'}
+                                          {checkout.checkout_date ? formatDateDDMMYYYY(checkout.checkout_date) : 'N/A'}
                                         </div>
                                       </div>
                                     </div>
@@ -635,7 +652,7 @@ export default function AssetManager({ user }) {
                       <div>
                         <div style={{ fontSize: '10px', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Checked Out Date</div>
                         <div style={{ fontWeight: '700', marginTop: '2px' }}>
-                          {a.checkout_date ? new Date(a.checkout_date).toLocaleDateString() : 'N/A'}
+                          {a.checkout_date ? formatDateDDMMYYYY(a.checkout_date) : 'N/A'}
                         </div>
                       </div>
                     </div>
