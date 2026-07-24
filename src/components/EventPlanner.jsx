@@ -235,9 +235,10 @@ export default function EventPlanner({ activeTenant, user }) {
   const fetchEvents = async () => {
     try {
       const data = await api.events.list();
-      setEvents(data);
+      setEvents(Array.isArray(data) ? data : []);
     } catch (err) {
       console.error('Failed to fetch events:', err);
+      setEvents([]);
     }
   };
 
@@ -245,18 +246,20 @@ export default function EventPlanner({ activeTenant, user }) {
     try {
       const yearVal = currentDate.getFullYear();
       const data = await api.holidays.list(yearVal);
-      setHolidays(data);
+      setHolidays(Array.isArray(data) ? data : []);
     } catch (err) {
       console.error('Failed to fetch holidays:', err);
+      setHolidays([]);
     }
   };
 
   const fetchEmployees = async () => {
     try {
       const data = await api.employees.list(true); // active only
-      setEmployees(data);
+      setEmployees(Array.isArray(data) ? data : []);
     } catch (err) {
       console.error('Failed to fetch employee roster:', err);
+      setEmployees([]);
     }
   };
 
@@ -401,23 +404,24 @@ export default function EventPlanner({ activeTenant, user }) {
 
   // Retrieve holidays & events for dateStr
   const getHolidaysForDate = (dateStr) => {
-    if (!dateStr) return [];
-    return holidays.filter(h => h.date === dateStr);
+    if (!dateStr || !Array.isArray(holidays)) return [];
+    return holidays.filter(h => h && h.date === dateStr);
   };
 
   const getEventsForDate = (dateStr) => {
-    if (!dateStr) return [];
-    return events.filter(e => e.start_time.startsWith(dateStr));
+    if (!dateStr || !Array.isArray(events)) return [];
+    return events.filter(e => e && e.start_time && String(e.start_time).startsWith(dateStr));
   };
 
   // Sort & categorize events
   const now = new Date();
   const in24h = new Date(now.getTime() + 24 * 60 * 60 * 1000);
-  const upcomingEvents = [...events].sort((a, b) => new Date(a.start_time) - new Date(b.start_time));
+  const safeEvents = Array.isArray(events) ? events.filter(Boolean) : [];
+  const upcomingEvents = [...safeEvents].sort((a, b) => new Date(a.start_time || 0) - new Date(b.start_time || 0));
   const categorizedEvents = {
-    upcoming: upcomingEvents.filter(e => e.status !== 'ARCHIVED' && new Date(e.start_time) > in24h),
-    pending: upcomingEvents.filter(e => e.status !== 'ARCHIVED' && new Date(e.start_time) <= in24h && new Date(e.start_time) > now),
-    completed: upcomingEvents.filter(e => e.status === 'ARCHIVED' || new Date(e.start_time) <= now)
+    upcoming: upcomingEvents.filter(e => e && e.status !== 'ARCHIVED' && new Date(e.start_time || 0) > in24h),
+    pending: upcomingEvents.filter(e => e && e.status !== 'ARCHIVED' && new Date(e.start_time || 0) <= in24h && new Date(e.start_time || 0) > now),
+    completed: upcomingEvents.filter(e => e && (e.status === 'ARCHIVED' || new Date(e.start_time || 0) <= now))
   };
 
   // ── Employee View-Only Layout ──────────────────────────────────────────────
