@@ -408,9 +408,17 @@ export default function EventPlanner({ activeTenant, user }) {
 
   // Sort & categorize events
   const now = new Date();
+  const todayStr = new Date().toISOString().split('T')[0];
   const in24h = new Date(now.getTime() + 24 * 60 * 60 * 1000);
   const safeEvents = Array.isArray(events) ? events.filter(Boolean) : [];
   const upcomingEvents = [...safeEvents].sort((a, b) => new Date(a.start_time || 0) - new Date(b.start_time || 0));
+  
+  // Sort holidays chronologically (upcoming holidays first)
+  const safeHolidays = Array.isArray(holidays) ? holidays.filter(Boolean) : [];
+  const sortedHolidays = [...safeHolidays].sort((a, b) => new Date(a.date || 0) - new Date(b.date || 0));
+  const upcomingHolidays = sortedHolidays.filter(h => (h.date || '') >= todayStr);
+  const pastHolidays = sortedHolidays.filter(h => (h.date || '') < todayStr);
+  const chronologicalHolidays = [...upcomingHolidays, ...pastHolidays];
   const categorizedEvents = {
     upcoming: upcomingEvents.filter(e => e && e.status !== 'ARCHIVED' && new Date(e.start_time || 0) > in24h),
     pending: upcomingEvents.filter(e => e && e.status !== 'ARCHIVED' && new Date(e.start_time || 0) <= in24h && new Date(e.start_time || 0) > now),
@@ -693,45 +701,50 @@ export default function EventPlanner({ activeTenant, user }) {
             <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', flex: 1 }}>
               <h3 style={{ fontSize: '17px', fontWeight: '800', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '8px', margin: 0 }}>
                 <Sparkles size={18} style={{ color: 'var(--brand-green)' }} />
-                Official Corporate Holidays
+                Upcoming Official Corporate Holidays ({upcomingHolidays.length})
               </h3>
               <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '10px', maxHeight: '520px' }}>
-                {holidays.length === 0 ? (
+                {chronologicalHolidays.length === 0 ? (
                   <div style={{ padding: '30px 15px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '13px', border: '1px dashed var(--border-glass)', borderRadius: '12px' }}>
-                    No holidays listed for this month.
+                    No holidays listed.
                   </div>
                 ) : (
-                  holidays.map(h => (
-                    <div key={h.id || h.date + h.name} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(255,255,255,0.02)', padding: '12px 16px', borderRadius: '10px', border: '1px solid var(--border-glass)' }}>
-                      <div>
-                        <div style={{ fontWeight: '800', fontSize: '14px', color: 'var(--text-primary)' }}>{h.name}</div>
-                        <div style={{ fontSize: '11px', color: 'var(--text-secondary)', marginTop: '2px' }}>{formatDateDDMMYYYY(h.date)}</div>
+                  chronologicalHolidays.map(h => {
+                    const isPast = (h.date || '') < todayStr;
+                    return (
+                      <div key={h.id || h.date + h.name} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: isPast ? 'rgba(255,255,255,0.01)' : 'rgba(255,255,255,0.03)', opacity: isPast ? 0.65 : 1, padding: '12px 16px', borderRadius: '10px', border: '1px solid var(--border-glass)' }}>
+                        <div>
+                          <div style={{ fontWeight: '800', fontSize: '14px', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            {h.name} {isPast && <span style={{ fontSize: '10px', color: 'var(--text-muted)', fontWeight: 'normal' }}>(Past)</span>}
+                          </div>
+                          <div style={{ fontSize: '11px', color: 'var(--text-secondary)', marginTop: '2px' }}>{formatDateDDMMYYYY(h.date)}</div>
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <span style={{ fontSize: '11px', fontWeight: '800', padding: '4px 9px', borderRadius: '8px', background: h.type === 'National' ? 'rgba(22,163,74,0.15)' : 'rgba(59,130,246,0.15)', color: h.type === 'National' ? '#16a34a' : '#3b82f6', border: `1px solid ${h.type === 'National' ? 'rgba(22,163,74,0.3)' : 'rgba(59,130,246,0.3)'}` }}>
+                            {h.type || 'Holiday'}
+                          </span>
+                          {isAdmin && (
+                            <button
+                              onClick={() => handleDeleteHoliday(h.id, h.name)}
+                              style={{
+                                background: 'rgba(239, 68, 68, 0.12)',
+                                color: '#ef4444',
+                                border: '1px solid rgba(239, 68, 68, 0.3)',
+                                borderRadius: '6px',
+                                padding: '4px 10px',
+                                fontSize: '11px',
+                                fontWeight: '800',
+                                cursor: 'pointer'
+                              }}
+                              title="Delete holiday from calendar"
+                            >
+                              Delete
+                            </button>
+                          )}
+                        </div>
                       </div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <span style={{ fontSize: '11px', fontWeight: '800', padding: '4px 9px', borderRadius: '8px', background: h.type === 'National' ? 'rgba(22,163,74,0.15)' : 'rgba(59,130,246,0.15)', color: h.type === 'National' ? '#16a34a' : '#3b82f6', border: `1px solid ${h.type === 'National' ? 'rgba(22,163,74,0.3)' : 'rgba(59,130,246,0.3)'}` }}>
-                          {h.type || 'Holiday'}
-                        </span>
-                        {isAdmin && (
-                          <button
-                            onClick={() => handleDeleteHoliday(h.id, h.name)}
-                            style={{
-                              background: 'rgba(239, 68, 68, 0.12)',
-                              color: '#ef4444',
-                              border: '1px solid rgba(239, 68, 68, 0.3)',
-                              borderRadius: '6px',
-                              padding: '4px 10px',
-                              fontSize: '11px',
-                              fontWeight: '800',
-                              cursor: 'pointer'
-                            }}
-                            title="Delete holiday from calendar"
-                          >
-                            Delete
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  ))
+                    );
+                  })
                 )}
               </div>
             </div>
