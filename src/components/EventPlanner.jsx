@@ -399,18 +399,7 @@ export default function EventPlanner({ activeTenant, user }) {
     completed: upcomingEvents.filter(e => e && (e.status === 'ARCHIVED' || new Date(e.start_time || 0) <= now))
   };
 
-  // ── Employee View-Only Layout ──────────────────────────────────────────────
-  if (!isAdmin) {
-    return <EmployeeEventView
-      currentDate={currentDate} setCurrentDate={setCurrentDate}
-      holidays={holidays} events={events}
-      dayCells={dayCells} weekDays={weekDays} year={year} month={month}
-      getHolidaysForDate={getHolidaysForDate} getEventsForDate={getEventsForDate}
-      categorizedEvents={categorizedEvents}
-      handlePrevMonth={handlePrevMonth} handleNextMonth={handleNextMonth}
-      activeAgendaTab={activeAgendaTab} setActiveAgendaTab={setActiveAgendaTab}
-    />;
-  }
+
 
   return (
     <div className="module-container" style={{ maxWidth: '100%', padding: '20px 30px' }}>
@@ -525,6 +514,7 @@ export default function EventPlanner({ activeTenant, user }) {
                   key={`day-${dayNum}`} 
                   className="calendar-day-cell"
                   onClick={() => {
+                    if (!isAdmin) return;
                     setAddingHolidayDate(dateStr);
                     setNewHolidayName('');
                     setNewHolidayType('Bank');
@@ -565,6 +555,7 @@ export default function EventPlanner({ activeTenant, user }) {
                         key={i} 
                         onClick={(e) => {
                           e.stopPropagation();
+                          if (!isAdmin) return;
                           setEditingHoliday(h);
                           setEditedHolidayName(h.name);
                           setEditedHolidayDate(h.date);
@@ -644,201 +635,231 @@ export default function EventPlanner({ activeTenant, user }) {
           flexDirection: 'column',
           boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)'
         }}>
-          <h3 style={{ fontSize: '18px', fontWeight: '800', color: 'var(--text-primary)', marginBottom: '18px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <Sparkles size={18} style={{ color: 'var(--brand-green)' }} />
-            Schedule Corporate Event
-          </h3>
-
-          <form onSubmit={handleCreateEvent} style={{ display: 'flex', flexDirection: 'column', gap: '14px', flex: 1 }}>
-            
-            <div className="form-group">
-              <label style={{ fontSize: '12px', fontWeight: '700', textTransform: 'uppercase', color: 'var(--text-secondary)' }}>Event Title</label>
-              <input 
-                type="text" 
-                placeholder="e.g. Q3 Strategic Planning Session" 
-                value={title} 
-                onChange={(e) => setTitle(e.target.value)} 
-                required 
-              />
-            </div>
-
-            <div className="form-group">
-              <label style={{ fontSize: '12px', fontWeight: '700', textTransform: 'uppercase', color: 'var(--text-secondary)' }}>Description</label>
-              <textarea 
-                rows="2" 
-                placeholder="Specify meeting details, agenda points, or video conference link..." 
-                value={description} 
-                onChange={(e) => setDescription(e.target.value)}
-                style={{ 
-                  width: '100%', 
-                  padding: '10px', 
-                  borderRadius: '8px', 
-                  background: 'rgba(0,0,0,0.15)', 
-                  border: '1px solid var(--border-glass)', 
-                  color: 'var(--text-primary)', 
-                  fontSize: '14px',
-                  resize: 'vertical'
-                }}
-              />
-            </div>
-
-            <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 0.8fr', gap: '12px' }}>
-              <div className="form-group">
-                <label style={{ fontSize: '12px', fontWeight: '700', textTransform: 'uppercase', color: 'var(--text-secondary)' }}>Date of Event</label>
-                <input 
-                  type="date" 
-                  value={eventDate} 
-                  onChange={(e) => setEventDate(e.target.value)} 
-                  required 
-                />
-              </div>
-              <div className="form-group">
-                <label style={{ fontSize: '12px', fontWeight: '700', textTransform: 'uppercase', color: 'var(--text-secondary)' }}>Time of Event</label>
-                <input 
-                  type="time" 
-                  value={eventTime} 
-                  onChange={(e) => setEventTime(e.target.value)} 
-                  required 
-                />
-              </div>
-            </div>
-
-            <div className="form-group">
-              <label style={{ fontSize: '12px', fontWeight: '700', textTransform: 'uppercase', color: 'var(--text-secondary)' }}>Location of Event</label>
-              <div style={{ position: 'relative' }}>
-                <input 
-                  type="text" 
-                  placeholder="e.g. Conference Room B / Google Meet link" 
-                  value={location} 
-                  onChange={(e) => setLocation(e.target.value)}
-                  style={{ paddingLeft: '35px' }}
-                />
-                <MapPin size={16} style={{ position: 'absolute', left: '12px', top: '13px', color: 'var(--text-secondary)' }} />
-              </div>
-            </div>
-
-            {/* Employee Selection Component */}
-            <div className="form-group" style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: '200px' }}>
-              <label style={{ fontSize: '12px', fontWeight: '700', textTransform: 'uppercase', color: 'var(--text-secondary)', marginBottom: '6px' }}>
-                Select Employee Recipients ({selectedEmployees.length} selected)
-              </label>
-
-              {/* Department Filtering & Searching */}
-              <div style={{ display: 'flex', gap: '10px', marginBottom: '10px' }}>
-                <input 
-                  type="text" 
-                  placeholder="Filter departments..." 
-                  value={deptSearch}
-                  onChange={(e) => setDeptSearch(e.target.value)}
-                  style={{ padding: '6px 12px', fontSize: '13px', borderRadius: '6px' }}
-                />
-              </div>
-
-              {/* Scrollable Accordion Wrapper */}
-              <div style={{ 
-                flex: 1, 
-                maxHeight: '220px', 
-                overflowY: 'auto', 
-                border: '1px solid var(--border-glass)', 
-                borderRadius: '10px', 
-                background: 'rgba(0,0,0,0.1)',
-                padding: '8px'
-              }}>
-                {departments
-                  .filter(dept => dept.toLowerCase().includes(deptSearch.toLowerCase()))
-                  .map(dept => {
-                    const deptEmps = employeesByDept[dept];
-                    const isExpanded = expandedDepts[dept];
-                    const isAllSelected = isDeptAllSelected(dept, deptEmps);
-                    const selectedCountInDept = deptEmps.filter(emp => isEmployeeSelected(emp.id)).length;
-
-                    return (
-                      <div key={dept} style={{ marginBottom: '8px', borderBottom: '1px solid rgba(255,255,255,0.02)', pb: '8px' }}>
-                        {/* Accordion Trigger Header */}
-                        <div style={{ 
-                          display: 'flex', 
-                          justifyContent: 'space-between', 
-                          alignItems: 'center', 
-                          background: 'rgba(255,255,255,0.02)',
-                          padding: '6px 10px', 
-                          borderRadius: '8px',
-                          cursor: 'pointer'
-                        }}>
-                          {/* Left: Checkbox & Label */}
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }} onClick={(e) => e.stopPropagation()}>
-                            <input 
-                              type="checkbox" 
-                              checked={isAllSelected}
-                              onChange={(e) => handleSelectAllDept(dept, deptEmps, e.target.checked)}
-                              style={{ width: '15px', height: '15px', cursor: 'pointer' }}
-                            />
-                            <span 
-                              onClick={() => toggleDept(dept)} 
-                              style={{ fontSize: '13px', fontWeight: '800', color: 'var(--text-primary)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '5px' }}
-                            >
-                              {dept} 
-                              <span style={{ fontSize: '11px', color: 'var(--text-secondary)', fontWeight: 'normal' }}>
-                                ({selectedCountInDept}/{deptEmps.length})
-                              </span>
-                            </span>
-                          </div>
-
-                          {/* Right: Expand Arrow */}
-                          <div onClick={() => toggleDept(dept)} style={{ display: 'flex', alignItems: 'center', color: 'var(--text-secondary)' }}>
-                            {isExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
-                          </div>
-                        </div>
-
-                        {/* Accordion Expanded Content */}
-                        {isExpanded && (
-                          <div style={{ padding: '8px 12px 4px 28px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                            {deptEmps.map(emp => {
-                              const isChecked = isEmployeeSelected(emp.id);
-                              return (
-                                <label 
-                                  key={emp.id} 
-                                  style={{ 
-                                    display: 'flex', 
-                                    alignItems: 'flex-start', 
-                                    gap: '8px', 
-                                    cursor: 'pointer',
-                                    fontSize: '13px',
-                                    lineHeight: '1.4'
-                                  }}
-                                >
-                                  <input 
-                                    type="checkbox" 
-                                    checked={isChecked}
-                                    onChange={() => handleSelectEmployee(emp)}
-                                    style={{ width: '14px', height: '14px', marginTop: '3px', cursor: 'pointer' }}
-                                  />
-                                  <div style={{ display: 'flex', flexDirection: 'column' }}>
-                                    <strong style={{ color: 'var(--text-primary)' }}>{emp.name}</strong>
-                                    <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>
-                                      📧 {emp.email || 'No company mail'} | 📁 {emp.personal_email || 'No personal mail'}
-                                    </span>
-                                  </div>
-                                </label>
-                              );
-                            })}
-                          </div>
-                        )}
+          {!isAdmin ? (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', flex: 1 }}>
+              <h3 style={{ fontSize: '18px', fontWeight: '800', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '8px', margin: 0 }}>
+                <Sparkles size={18} style={{ color: 'var(--brand-green)' }} />
+                Official Corporate Holidays
+              </h3>
+              <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '10px', maxHeight: '520px' }}>
+                {holidays.length === 0 ? (
+                  <div style={{ padding: '30px 15px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '13px', border: '1px dashed var(--border-glass)', borderRadius: '12px' }}>
+                    No holidays listed for this month.
+                  </div>
+                ) : (
+                  holidays.map(h => (
+                    <div key={h.id || h.date + h.name} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(255,255,255,0.02)', padding: '12px 16px', borderRadius: '10px', border: '1px solid var(--border-glass)' }}>
+                      <div>
+                        <div style={{ fontWeight: '800', fontSize: '14px', color: 'var(--text-primary)' }}>{h.name}</div>
+                        <div style={{ fontSize: '11px', color: 'var(--text-secondary)', marginTop: '2px' }}>{h.date}</div>
                       </div>
-                    );
-                  })}
+                      <span style={{ fontSize: '11px', fontWeight: '800', padding: '4px 10px', borderRadius: '8px', background: h.type === 'National' ? 'rgba(22,163,74,0.15)' : 'rgba(59,130,246,0.15)', color: h.type === 'National' ? '#16a34a' : '#3b82f6', border: `1px solid ${h.type === 'National' ? 'rgba(22,163,74,0.3)' : 'rgba(59,130,246,0.3)'}` }}>
+                        {h.type || 'Holiday'}
+                      </span>
+                    </div>
+                  ))
+                )}
               </div>
             </div>
+          ) : (
+            <>
+              <h3 style={{ fontSize: '18px', fontWeight: '800', color: 'var(--text-primary)', marginBottom: '18px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Sparkles size={18} style={{ color: 'var(--brand-green)' }} />
+                Schedule Corporate Event
+              </h3>
 
-            <button 
-              type="submit" 
-              className="btn-primary" 
-              disabled={loading}
-              style={{ width: '100%', justifyContent: 'center', background: 'var(--brand-gradient)', padding: '14px', fontSize: '15px' }}
-            >
-              <Plus size={16} /> 
-              {loading ? 'Creating Event...' : 'Create & Schedule Event'}
-            </button>
-          </form>
+              <form onSubmit={handleCreateEvent} style={{ display: 'flex', flexDirection: 'column', gap: '14px', flex: 1 }}>
+                
+                <div className="form-group">
+                  <label style={{ fontSize: '12px', fontWeight: '700', textTransform: 'uppercase', color: 'var(--text-secondary)' }}>Event Title</label>
+                  <input 
+                    type="text" 
+                    placeholder="e.g. Q3 Strategic Planning Session" 
+                    value={title} 
+                    onChange={(e) => setTitle(e.target.value)} 
+                    required 
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label style={{ fontSize: '12px', fontWeight: '700', textTransform: 'uppercase', color: 'var(--text-secondary)' }}>Description</label>
+                  <textarea 
+                    rows="2" 
+                    placeholder="Specify meeting details, agenda points, or video conference link..." 
+                    value={description} 
+                    onChange={(e) => setDescription(e.target.value)}
+                    style={{ 
+                      width: '100%', 
+                      padding: '10px', 
+                      borderRadius: '8px', 
+                      background: 'rgba(0,0,0,0.15)', 
+                      border: '1px solid var(--border-glass)', 
+                      color: 'var(--text-primary)', 
+                      fontSize: '14px',
+                      resize: 'vertical'
+                    }}
+                  />
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 0.8fr', gap: '12px' }}>
+                  <div className="form-group">
+                    <label style={{ fontSize: '12px', fontWeight: '700', textTransform: 'uppercase', color: 'var(--text-secondary)' }}>Date of Event</label>
+                    <input 
+                      type="date" 
+                      value={eventDate} 
+                      onChange={(e) => setEventDate(e.target.value)} 
+                      required 
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label style={{ fontSize: '12px', fontWeight: '700', textTransform: 'uppercase', color: 'var(--text-secondary)' }}>Time of Event</label>
+                    <input 
+                      type="time" 
+                      value={eventTime} 
+                      onChange={(e) => setEventTime(e.target.value)} 
+                      required 
+                    />
+                  </div>
+                </div>
+
+                <div className="form-group">
+                  <label style={{ fontSize: '12px', fontWeight: '700', textTransform: 'uppercase', color: 'var(--text-secondary)' }}>Location of Event</label>
+                  <div style={{ position: 'relative' }}>
+                    <input 
+                      type="text" 
+                      placeholder="e.g. Conference Room B / Google Meet link" 
+                      value={location} 
+                      onChange={(e) => setLocation(e.target.value)}
+                      style={{ paddingLeft: '35px' }}
+                    />
+                    <MapPin size={16} style={{ position: 'absolute', left: '12px', top: '13px', color: 'var(--text-secondary)' }} />
+                  </div>
+                </div>
+
+                {/* Employee Selection Component */}
+                <div className="form-group" style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: '200px' }}>
+                  <label style={{ fontSize: '12px', fontWeight: '700', textTransform: 'uppercase', color: 'var(--text-secondary)', marginBottom: '6px' }}>
+                    Select Employee Recipients ({selectedEmployees.length} selected)
+                  </label>
+
+                  {/* Department Filtering & Searching */}
+                  <div style={{ display: 'flex', gap: '10px', marginBottom: '10px' }}>
+                    <input 
+                      type="text" 
+                      placeholder="Filter departments..." 
+                      value={deptSearch}
+                      onChange={(e) => setDeptSearch(e.target.value)}
+                      style={{ padding: '6px 12px', fontSize: '13px', borderRadius: '6px' }}
+                    />
+                  </div>
+
+                  {/* Scrollable Accordion Wrapper */}
+                  <div style={{ 
+                    flex: 1, 
+                    maxHeight: '220px', 
+                    overflowY: 'auto', 
+                    border: '1px solid var(--border-glass)', 
+                    borderRadius: '10px', 
+                    background: 'rgba(0,0,0,0.1)',
+                    padding: '8px'
+                  }}>
+                    {departments
+                      .filter(dept => dept.toLowerCase().includes(deptSearch.toLowerCase()))
+                      .map(dept => {
+                        const deptEmps = employeesByDept[dept];
+                        const isExpanded = expandedDepts[dept];
+                        const isAllSelected = isDeptAllSelected(dept, deptEmps);
+                        const selectedCountInDept = deptEmps.filter(emp => isEmployeeSelected(emp.id)).length;
+
+                        return (
+                          <div key={dept} style={{ marginBottom: '8px', borderBottom: '1px solid rgba(255,255,255,0.02)', pb: '8px' }}>
+                            {/* Accordion Trigger Header */}
+                            <div style={{ 
+                              display: 'flex', 
+                              justifyContent: 'space-between', 
+                              alignItems: 'center', 
+                              background: 'rgba(255,255,255,0.02)',
+                              padding: '6px 10px', 
+                              borderRadius: '8px',
+                              cursor: 'pointer'
+                            }}>
+                              {/* Left: Checkbox & Label */}
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }} onClick={(e) => e.stopPropagation()}>
+                                <input 
+                                  type="checkbox" 
+                                  checked={isAllSelected}
+                                  onChange={(e) => handleSelectAllDept(dept, deptEmps, e.target.checked)}
+                                  style={{ width: '15px', height: '15px', cursor: 'pointer' }}
+                                />
+                                <span 
+                                  onClick={() => toggleDept(dept)} 
+                                  style={{ fontSize: '13px', fontWeight: '800', color: 'var(--text-primary)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '5px' }}
+                                >
+                                  {dept} 
+                                  <span style={{ fontSize: '11px', color: 'var(--text-secondary)', fontWeight: 'normal' }}>
+                                    ({selectedCountInDept}/{deptEmps.length})
+                                  </span>
+                                </span>
+                              </div>
+
+                              {/* Right: Expand Arrow */}
+                              <div onClick={() => toggleDept(dept)} style={{ display: 'flex', alignItems: 'center', color: 'var(--text-secondary)' }}>
+                                {isExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                              </div>
+                            </div>
+
+                            {/* Accordion Expanded Content */}
+                            {isExpanded && (
+                              <div style={{ padding: '8px 12px 4px 28px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                {deptEmps.map(emp => {
+                                  const isChecked = isEmployeeSelected(emp.id);
+                                  return (
+                                    <label 
+                                      key={emp.id} 
+                                      style={{ 
+                                        display: 'flex', 
+                                        alignItems: 'flex-start', 
+                                        gap: '8px', 
+                                        cursor: 'pointer',
+                                        fontSize: '13px',
+                                        lineHeight: '1.4'
+                                      }}
+                                    >
+                                      <input 
+                                        type="checkbox" 
+                                        checked={isChecked}
+                                        onChange={() => handleSelectEmployee(emp)}
+                                        style={{ width: '14px', height: '14px', marginTop: '3px', cursor: 'pointer' }}
+                                      />
+                                      <div style={{ display: 'flex', flexDirection: 'column' }}>
+                                        <strong style={{ color: 'var(--text-primary)' }}>{emp.name}</strong>
+                                        <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>
+                                          📧 {emp.email || 'No company mail'} | 📁 {emp.personal_email || 'No personal mail'}
+                                        </span>
+                                      </div>
+                                    </label>
+                                  );
+                                })}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                  </div>
+                </div>
+
+                <button 
+                  type="submit" 
+                  className="btn-primary" 
+                  disabled={loading}
+                  style={{ width: '100%', justifyContent: 'center', background: 'var(--brand-gradient)', padding: '14px', fontSize: '15px' }}
+                >
+                  <Plus size={16} /> 
+                  {loading ? 'Creating Event...' : 'Create & Schedule Event'}
+                </button>
+              </form>
+            </>
+          )}
         </div>
 
         {/* ==================== RIGHT PANE: SCHEDULED EVENTS AGENDA ==================== */}
@@ -962,43 +983,45 @@ export default function EventPlanner({ activeTenant, user }) {
                             {ev.title}
                           </h4>
                           
-                          {/* Manual Archive Button or Delete Forever Button */}
-                          {ev.status !== 'ARCHIVED' ? (
-                            <button
-                              onClick={() => handleArchiveEvent(ev.id)}
-                              style={{
-                                background: 'rgba(239, 68, 68, 0.08)',
-                                color: '#ef4444',
-                                border: '1px solid rgba(239, 68, 68, 0.2)',
-                                borderRadius: '6px',
-                                padding: '3px 8px',
-                                fontSize: '11px',
-                                fontWeight: '700',
-                                cursor: 'pointer',
-                                transition: 'all 0.2s'
-                              }}
-                              title="Archive reminder early"
-                            >
-                              Archive
-                            </button>
-                          ) : (
-                            <button
-                              onClick={() => handleDeleteEvent(ev.id)}
-                              style={{
-                                background: 'rgba(239, 68, 68, 0.15)',
-                                color: '#ef4444',
-                                border: '1.5px solid rgba(239, 68, 68, 0.3)',
-                                borderRadius: '6px',
-                                padding: '3px 8px',
-                                fontSize: '11px',
-                                fontWeight: '800',
-                                cursor: 'pointer',
-                                transition: 'all 0.2s'
-                              }}
-                              title="Delete reminder forever"
-                            >
-                              Delete Forever
-                            </button>
+                          {/* Manual Archive Button or Delete Forever Button (Admin only) */}
+                          {isAdmin && (
+                            ev.status !== 'ARCHIVED' ? (
+                              <button
+                                onClick={() => handleArchiveEvent(ev.id)}
+                                style={{
+                                  background: 'rgba(239, 68, 68, 0.08)',
+                                  color: '#ef4444',
+                                  border: '1px solid rgba(239, 68, 68, 0.2)',
+                                  borderRadius: '6px',
+                                  padding: '3px 8px',
+                                  fontSize: '11px',
+                                  fontWeight: '700',
+                                  cursor: 'pointer',
+                                  transition: 'all 0.2s'
+                                }}
+                                title="Archive reminder early"
+                              >
+                                Archive
+                              </button>
+                            ) : (
+                              <button
+                                onClick={() => handleDeleteEvent(ev.id)}
+                                style={{
+                                  background: 'rgba(239, 68, 68, 0.15)',
+                                  color: '#ef4444',
+                                  border: '1.5px solid rgba(239, 68, 68, 0.3)',
+                                  borderRadius: '6px',
+                                  padding: '3px 8px',
+                                  fontSize: '11px',
+                                  fontWeight: '800',
+                                  cursor: 'pointer',
+                                  transition: 'all 0.2s'
+                                }}
+                                title="Delete reminder forever"
+                              >
+                                Delete Forever
+                              </button>
+                            )
                           )}
                         </div>
                         
