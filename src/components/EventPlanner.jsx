@@ -198,38 +198,13 @@ export default function EventPlanner({ activeTenant, user }) {
     fetchHolidays();
   }, [currentDate]);
 
-  // ── SSE Real-Time Sync (employee side) ──────────────────────────────────────
+  // ── Employee Polling Sync (15s auto-sync for non-admin) ───────────────────
   useEffect(() => {
-    if (isAdmin) return; // Admin already has the source
-    const token = localStorage.getItem('hr_token');
-    const base = 'https://hrms-backend-gamma.vercel.app';
-    const url = `${base}/api/events/stream`;
-    let es;
-    try {
-      // EventSource doesn't support custom headers; use query param token
-      es = new EventSource(`${url}?token=${encodeURIComponent(token || '')}`);
-      es.onmessage = (ev) => {
-        try {
-          const data = JSON.parse(ev.data);
-          if (data.action !== 'ping' && data.action !== 'connected') {
-            fetchEvents();
-          }
-        } catch (_) {}
-      };
-      es.onerror = () => {
-        es.close();
-        // Fallback: poll every 10 seconds
-        const pollId = setInterval(fetchEvents, 10000);
-        sseRef.current = { close: () => clearInterval(pollId) };
-      };
-      sseRef.current = es;
-    } catch (_) {
-      const pollId = setInterval(fetchEvents, 10000);
-      sseRef.current = { close: () => clearInterval(pollId) };
-    }
-    return () => {
-      if (sseRef.current) sseRef.current.close();
-    };
+    if (isAdmin) return;
+    const pollId = setInterval(() => {
+      fetchEvents();
+    }, 15000);
+    return () => clearInterval(pollId);
   }, [isAdmin]);
 
   const fetchEvents = async () => {
@@ -1273,15 +1248,16 @@ function EmployeeEventView({
   handlePrevMonth, handleNextMonth,
   activeAgendaTab, setActiveAgendaTab
 }) {
+  const safeCategorized = categorizedEvents || { upcoming: [], pending: [], completed: [] };
   const currentTab = ['upcoming', 'pending', 'completed'].includes(activeAgendaTab) ? activeAgendaTab : 'upcoming';
 
   const TABS = [
-    { key: 'upcoming', label: 'Upcoming', color: '#ec4899', bg: 'rgba(236,72,153,0.1)', count: categorizedEvents.upcoming.length },
-    { key: 'pending',  label: 'Pending',  color: '#f59e0b', bg: 'rgba(245,158,11,0.1)', count: categorizedEvents.pending.length },
-    { key: 'completed',label: 'Completed',color: '#64748b', bg: 'rgba(100,116,139,0.1)', count: categorizedEvents.completed.length },
+    { key: 'upcoming', label: 'Upcoming', color: '#ec4899', bg: 'rgba(236,72,153,0.1)', count: (safeCategorized.upcoming || []).length },
+    { key: 'pending',  label: 'Pending',  color: '#f59e0b', bg: 'rgba(245,158,11,0.1)', count: (safeCategorized.pending || []).length },
+    { key: 'completed',label: 'Completed',color: '#64748b', bg: 'rgba(100,116,139,0.1)', count: (safeCategorized.completed || []).length },
   ];
 
-  const visibleEvents = categorizedEvents[currentTab] || [];
+  const visibleEvents = safeCategorized[currentTab] || [];
 
   const getBadgeColor = (ev) => {
     const st = new Date(ev.start_time);
