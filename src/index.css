@@ -1295,6 +1295,30 @@ body.light-mode .otp-input-container input {
 }
 
 /* Word Document Preview HTML styling */
+.word-preview-content {
+  width: 100% !important;
+  max-width: 100% !important;
+  box-sizing: border-box !important;
+  overflow-x: hidden !important;
+  color: #0f172a !important;
+}
+
+.word-preview-content * {
+  max-width: 100% !important;
+  box-sizing: border-box !important;
+  word-wrap: break-word !important;
+  overflow-wrap: break-word !important;
+}
+
+.word-preview-content img {
+  max-width: 100% !important;
+  height: auto !important;
+  display: block !important;
+  margin: 14px auto !important;
+  object-fit: contain !important;
+  border-radius: 4px;
+}
+
 .word-preview-content h1,
 .word-preview-content h2,
 .word-preview-content h3,
@@ -1303,14 +1327,17 @@ body.light-mode .otp-input-container input {
   margin-top: 20px !important;
   margin-bottom: 10px !important;
   font-family: inherit !important;
+  font-weight: 700 !important;
+  line-height: 1.4 !important;
 }
-.word-preview-content h1 { font-size: 24px !important; border-bottom: 1px solid #e2e8f0; padding-bottom: 6px; }
-.word-preview-content h2 { font-size: 20px !important; }
-.word-preview-content h3 { font-size: 17px !important; }
-.word-preview-content p { color: #334155 !important; font-size: 15px !important; margin-bottom: 12px !important; line-height: 1.7 !important; }
+
+.word-preview-content h1 { font-size: 22px !important; border-bottom: 2px solid #e2e8f0; padding-bottom: 6px; color: #1e293b !important; }
+.word-preview-content h2 { font-size: 19px !important; color: #1e293b !important; }
+.word-preview-content h3 { font-size: 16px !important; color: #334155 !important; }
+.word-preview-content p { color: #334155 !important; font-size: 14.5px !important; margin-bottom: 12px !important; line-height: 1.7 !important; }
 .word-preview-content ul, .word-preview-content ol { margin-left: 24px !important; margin-bottom: 14px !important; color: #334155 !important; }
-.word-preview-content li { margin-bottom: 4px !important; font-size: 15px !important; }
-.word-preview-content table { width: 100% !important; border-collapse: collapse !important; margin: 16px 0 !important; }
+.word-preview-content li { margin-bottom: 6px !important; font-size: 14.5px !important; line-height: 1.6 !important; }
+.word-preview-content table { width: 100% !important; border-collapse: collapse !important; margin: 16px 0 !important; overflow-x: auto !important; display: block !important; }
 .word-preview-content th, .word-preview-content td { border: 1px solid #cbd5e1 !important; padding: 10px 14px !important; text-align: left !important; font-size: 14px !important; color: #1e293b !important; }
 .word-preview-content th { background-color: #f1f5f9 !important; font-weight: 700 !important; }
 

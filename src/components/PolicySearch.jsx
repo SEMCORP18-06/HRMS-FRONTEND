@@ -819,8 +819,8 @@ export default function PolicySearch({ user }) {
             left: 0,
             right: 0,
             bottom: 0,
-            backgroundColor: 'rgba(0, 0, 0, 0.85)',
-            backdropFilter: 'blur(8px)',
+            backgroundColor: 'rgba(15, 23, 42, 0.85)',
+            backdropFilter: 'blur(12px)',
             zIndex: 99999,
             display: 'flex',
             alignItems: 'center',
@@ -832,14 +832,15 @@ export default function PolicySearch({ user }) {
           <div 
             style={{
               background: '#0f172a',
-              border: '1px solid var(--border-glass)',
+              border: '1px solid rgba(255, 255, 255, 0.12)',
               borderRadius: '20px',
-              width: '92%',
-              maxWidth: '1050px',
-              height: '85vh',
+              width: '95%',
+              maxWidth: '1100px',
+              height: '90vh',
+              maxHeight: '920px',
               display: 'flex',
               flexDirection: 'column',
-              boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)',
+              boxShadow: '0 25px 60px -15px rgba(0, 0, 0, 0.7)',
               overflow: 'hidden'
             }}
             onClick={(e) => e.stopPropagation()}
@@ -847,54 +848,59 @@ export default function PolicySearch({ user }) {
             {/* Modal Header */}
             <div style={{
               padding: '16px 24px',
-              borderBottom: '1px solid var(--border-glass)',
+              borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'space-between',
-              background: 'rgba(255, 255, 255, 0.02)'
+              background: 'rgba(30, 41, 59, 0.6)',
+              flexShrink: 0
             }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <FileText size={22} style={{ color: '#38bdf8' }} />
-                <div>
-                  <h3 style={{ fontSize: '16px', fontWeight: '800', margin: 0, color: '#f8fafc' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', minWidth: 0 }}>
+                <div style={{ background: 'rgba(56, 189, 248, 0.12)', padding: '8px', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <FileText size={22} style={{ color: '#38bdf8' }} />
+                </div>
+                <div style={{ minWidth: 0 }}>
+                  <h3 style={{ fontSize: '16px', fontWeight: '800', margin: 0, color: '#f8fafc', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                     {docViewer.title}
                   </h3>
-                  <span style={{ fontSize: '11px', color: '#94a3b8' }}>
-                    {docViewer.fileName}
+                  <span style={{ fontSize: '12px', color: '#94a3b8', fontWeight: '500' }}>
+                    📄 {docViewer.fileName}
                   </span>
                 </div>
               </div>
 
-              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexShrink: 0 }}>
                 <button
                   onClick={() => handleTriggerDownload(docViewer.rawUrl, docViewer.fileName)}
                   className="btn-primary"
                   style={{
-                    padding: '8px 16px',
-                    borderRadius: '8px',
+                    padding: '8px 18px',
+                    borderRadius: '10px',
                     fontSize: '13px',
                     fontWeight: '700',
                     display: 'flex',
                     alignItems: 'center',
-                    gap: '6px'
+                    gap: '6px',
+                    background: 'var(--brand-gradient)'
                   }}
                 >
-                  📥 Download File
+                  <Download size={15} /> Download File
                 </button>
                 <button
                   onClick={closeDocViewer}
                   style={{
-                    background: 'rgba(255, 255, 255, 0.1)',
+                    background: 'rgba(255, 255, 255, 0.08)',
                     color: '#94a3b8',
-                    border: 'none',
-                    width: '32px',
-                    height: '32px',
+                    border: '1px solid rgba(255, 255, 255, 0.1)',
+                    width: '34px',
+                    height: '34px',
                     borderRadius: '50%',
                     cursor: 'pointer',
                     fontSize: '16px',
                     display: 'flex',
                     alignItems: 'center',
-                    justifyContent: 'center'
+                    justifyContent: 'center',
+                    transition: 'all 0.15s ease'
                   }}
                 >
                   ✕
@@ -903,38 +909,40 @@ export default function PolicySearch({ user }) {
             </div>
 
             {/* Modal Body */}
-            <div style={{ flex: 1, width: '100%', height: '100%', background: '#0f172a', overflowY: 'auto' }}>
+            <div style={{ flex: 1, width: '100%', height: '100%', background: '#090d16', overflowY: 'auto', padding: '24px 16px' }}>
               {docViewer.isWord ? (
-                <div style={{ padding: '24px', minHeight: '100%' }}>
+                <div style={{ display: 'flex', justifyContent: 'center', width: '100%' }}>
                   <div style={{
                     background: '#ffffff',
                     color: '#0f172a',
-                    padding: '40px 50px',
+                    padding: '45px 55px',
                     borderRadius: '12px',
-                    boxShadow: '0 10px 30px rgba(0,0,0,0.5)',
-                    maxWidth: '850px',
-                    margin: '0 auto',
-                    minHeight: '600px',
+                    boxShadow: '0 12px 40px rgba(0, 0, 0, 0.6)',
+                    width: '100%',
+                    maxWidth: '860px',
+                    minHeight: '650px',
+                    boxSizing: 'border-box',
                     fontSize: '15px',
                     lineHeight: '1.7',
-                    fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif'
+                    fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif',
+                    overflowX: 'hidden'
                   }}>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '2px solid #e2e8f0', paddingBottom: '16px', marginBottom: '24px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '2px solid #e2e8f0', paddingBottom: '16px', marginBottom: '28px', flexWrap: 'wrap', gap: '10px' }}>
                       <div>
                         <div style={{ fontSize: '11px', fontWeight: '800', color: '#6366f1', textTransform: 'uppercase', letterSpacing: '1px' }}>
-                          Word Document Preview
+                          Official Company Document
                         </div>
                         <div style={{ fontSize: '22px', fontWeight: '850', color: '#0f172a', marginTop: '4px' }}>
                           {docViewer.title}
                         </div>
                       </div>
                       <span style={{ fontSize: '12px', background: '#f1f5f9', color: '#475569', padding: '6px 12px', borderRadius: '8px', fontWeight: '700', border: '1px solid #cbd5e1' }}>
-                        📄 {docViewer.fileName}
+                        {docViewer.fileName}
                       </span>
                     </div>
 
                     {docViewer.loadingDoc ? (
-                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '300px', gap: '12px', color: '#64748b' }}>
+                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '350px', gap: '14px', color: '#64748b' }}>
                         <div style={{ fontSize: '14px', fontWeight: '600' }}>Converting Word document for preview...</div>
                       </div>
                     ) : docViewer.docHtml ? (
@@ -960,20 +968,21 @@ export default function PolicySearch({ user }) {
                   style={{ width: '100%', height: '100%', border: 'none' }}
                 />
               ) : (
-                <div style={{ padding: '24px', minHeight: '100%' }}>
+                <div style={{ display: 'flex', justifyContent: 'center', width: '100%' }}>
                   <div style={{
                     background: '#ffffff',
                     color: '#0f172a',
-                    padding: '40px 50px',
+                    padding: '45px 55px',
                     borderRadius: '12px',
-                    boxShadow: '0 10px 30px rgba(0,0,0,0.5)',
-                    maxWidth: '850px',
-                    margin: '0 auto',
-                    minHeight: '600px',
+                    boxShadow: '0 12px 40px rgba(0, 0, 0, 0.6)',
+                    width: '100%',
+                    maxWidth: '860px',
+                    minHeight: '650px',
+                    boxSizing: 'border-box',
                     fontSize: '15px',
                     lineHeight: '1.7'
                   }}>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '2px solid #e2e8f0', paddingBottom: '16px', marginBottom: '24px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '2px solid #e2e8f0', paddingBottom: '16px', marginBottom: '28px', flexWrap: 'wrap', gap: '10px' }}>
                       <div>
                         <div style={{ fontSize: '11px', fontWeight: '800', color: '#6366f1', textTransform: 'uppercase', letterSpacing: '1px' }}>
                           Document Reader Preview
@@ -983,7 +992,7 @@ export default function PolicySearch({ user }) {
                         </div>
                       </div>
                       <span style={{ fontSize: '12px', background: '#f1f5f9', color: '#475569', padding: '6px 12px', borderRadius: '8px', fontWeight: '700', border: '1px solid #cbd5e1' }}>
-                        📄 {docViewer.fileName}
+                        {docViewer.fileName}
                       </span>
                     </div>
                     <div style={{ whiteSpace: 'pre-wrap', color: '#334155', fontSize: '14.5px', lineHeight: '1.7' }}>
