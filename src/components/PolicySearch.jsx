@@ -657,30 +657,54 @@ export default function PolicySearch({ user }) {
                               <Trash2 size={12} /> Delete
                             </button>
                           ) : (
-                            <button
-                              title="Restore Policy"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleRestorePolicy(p.id, p.title);
-                              }}
-                              style={{
-                                background: 'rgba(16, 185, 129, 0.15)',
-                                border: '1px solid rgba(16, 185, 129, 0.3)',
-                                color: '#10b981',
-                                cursor: 'pointer',
-                                padding: '3px 7px',
-                                borderRadius: '6px',
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: '4px',
-                                fontSize: '11px',
-                                fontWeight: '700',
-                                marginLeft: 'auto',
-                                transition: 'all 0.15s ease'
-                              }}
-                            >
-                              <RotateCcw size={12} /> Restore
-                            </button>
+                            <div style={{ display: 'flex', gap: '6px', marginLeft: 'auto' }}>
+                              <button
+                                title="Restore Policy"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleRestorePolicy(p.id, p.title);
+                                }}
+                                style={{
+                                  background: 'rgba(16, 185, 129, 0.15)',
+                                  border: '1px solid rgba(16, 185, 129, 0.3)',
+                                  color: '#10b981',
+                                  cursor: 'pointer',
+                                  padding: '3px 8px',
+                                  borderRadius: '6px',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: '4px',
+                                  fontSize: '11px',
+                                  fontWeight: '700',
+                                  transition: 'all 0.15s ease'
+                                }}
+                              >
+                                <RotateCcw size={12} /> Restore
+                              </button>
+                              <button
+                                title="Delete Forever from Trash"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handlePermanentDeletePolicy(p.id, p.title);
+                                }}
+                                style={{
+                                  background: 'rgba(239, 68, 68, 0.15)',
+                                  border: '1px solid rgba(239, 68, 68, 0.3)',
+                                  color: '#ef4444',
+                                  cursor: 'pointer',
+                                  padding: '3px 8px',
+                                  borderRadius: '6px',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: '4px',
+                                  fontSize: '11px',
+                                  fontWeight: '700',
+                                  transition: 'all 0.15s ease'
+                                }}
+                              >
+                                <Trash2 size={12} /> Delete Forever
+                              </button>
+                            </div>
                           )
                         )}
                       </div>
@@ -836,17 +860,18 @@ export default function PolicySearch({ user }) {
                               display: 'inline-flex',
                               alignItems: 'center',
                               gap: '8px',
-                              background: 'rgba(239, 68, 68, 0.1)',
-                              border: '1px solid rgba(239, 68, 68, 0.3)',
+                              background: 'rgba(239, 68, 68, 0.15)',
+                              border: '1px solid rgba(239, 68, 68, 0.4)',
                               color: '#ef4444',
                               padding: '10px 18px',
                               borderRadius: '10px',
                               fontSize: '13px',
                               fontWeight: '700',
-                              cursor: 'pointer'
+                              cursor: 'pointer',
+                              transition: 'all 0.15s ease'
                             }}
                           >
-                            <Trash2 size={16} /> Permanently Delete
+                            <Trash2 size={16} /> Delete Forever
                           </button>
                         </div>
                       )
