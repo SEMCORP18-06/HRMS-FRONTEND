@@ -164,6 +164,48 @@ export default function PolicySearch({ user }) {
     });
   };
 
+  const cleanWordHtml = (rawHtml) => {
+    if (!rawHtml) return '';
+    try {
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(rawHtml, 'text/html');
+
+      doc.querySelectorAll('*').forEach(el => {
+        el.removeAttribute('width');
+        el.removeAttribute('height');
+        if (el.style) {
+          el.style.width = '';
+          el.style.maxWidth = '100%';
+          el.style.minWidth = '0';
+          el.style.height = '';
+          el.style.marginLeft = '0';
+          el.style.marginRight = '0';
+        }
+      });
+
+      doc.querySelectorAll('table').forEach(table => {
+        table.style.width = '100%';
+        table.style.maxWidth = '100%';
+        table.style.borderCollapse = 'collapse';
+        table.style.margin = '14px 0';
+        table.style.tableLayout = 'auto';
+      });
+
+      doc.querySelectorAll('img').forEach(img => {
+        img.style.maxWidth = '100%';
+        img.style.height = 'auto';
+        img.style.display = 'block';
+        img.style.margin = '12px auto';
+        img.style.objectFit = 'contain';
+      });
+
+      return doc.body.innerHTML;
+    } catch (err) {
+      console.error('cleanWordHtml error:', err);
+      return rawHtml;
+    }
+  };
+
   const handleOpenDocViewer = async (fileUrl, title, fileName = 'Policy_Document', policyContent = '') => {
     if (!fileUrl) return;
 
@@ -238,9 +280,10 @@ export default function PolicySearch({ user }) {
 
         const result = await mammoth.convertToHtml({ arrayBuffer });
         if (result && result.value) {
+          const cleaned = cleanWordHtml(result.value);
           setDocViewer(prev => ({
             ...prev,
-            docHtml: result.value,
+            docHtml: cleaned,
             loadingDoc: false
           }));
         } else {
