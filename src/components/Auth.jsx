@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { api } from '../utils/api';
-import { KeyRound, User, Mail, ShieldAlert, Sun, Moon, CheckCircle, ArrowLeft, Hash, RefreshCw } from 'lucide-react';
+import { KeyRound, User, Mail, ShieldAlert, Sun, Moon, CheckCircle, ArrowLeft, Hash, RefreshCw, Eye, EyeOff } from 'lucide-react';
 
 // ── OTP Input Component ──────────────────────────────────────────────────
 function OtpInput({ length = 6, value, onChange }) {
@@ -132,6 +132,12 @@ export default function Auth({ onLoginSuccess }) {
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
 
+  // Password visibility states
+  const [showPassword, setShowPassword] = useState(false);
+  const [showSignupPassword, setShowSignupPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+
   // Theme
   const [isLightMode, setIsLightMode] = useState(() => {
     return localStorage.getItem('theme') === 'light';
@@ -170,6 +176,10 @@ export default function Auth({ onLoginSuccess }) {
     setForgotOtp('');
     setNewPassword('');
     setConfirmPassword('');
+    setShowPassword(false);
+    setShowSignupPassword(false);
+    setShowNewPassword(false);
+    setShowConfirmPassword(false);
     setError('');
     setSuccess('');
     setSignupStep(1);
@@ -390,15 +400,37 @@ export default function Auth({ onLoginSuccess }) {
           <label style={{ fontWeight: 'bold' }}>Password</label>
           <div style={{ position: 'relative' }}>
             <input
-              type="password"
+              type={showPassword ? "text" : "password"}
               placeholder="••••••••"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               disabled={loading}
               required
-              style={{ paddingLeft: '38px', fontWeight: 'bold' }}
+              style={{ paddingLeft: '38px', paddingRight: '40px', fontWeight: 'bold' }}
             />
             <KeyRound size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+            <button
+              type="button"
+              onClick={() => setShowPassword(!showPassword)}
+              style={{
+                position: 'absolute',
+                right: '12px',
+                top: '50%',
+                transform: 'translateY(-50%)',
+                background: 'transparent',
+                border: 'none',
+                color: 'var(--text-muted)',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                padding: '4px'
+              }}
+              title={showPassword ? "Hide password" : "Show password"}
+              aria-label={showPassword ? "Hide password" : "Show password"}
+            >
+              {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+            </button>
           </div>
           <div style={{ textAlign: 'right', marginTop: '6px' }}>
             <button
@@ -509,15 +541,37 @@ export default function Auth({ onLoginSuccess }) {
               <label style={{ fontWeight: 'bold' }}>Password</label>
               <div style={{ position: 'relative' }}>
                 <input
-                  type="password"
+                  type={showSignupPassword ? "text" : "password"}
                   placeholder="Create Password (min 6 characters)"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   disabled={loading}
                   required
-                  style={{ paddingLeft: '38px', fontWeight: 'bold' }}
+                  style={{ paddingLeft: '38px', paddingRight: '40px', fontWeight: 'bold' }}
                 />
                 <KeyRound size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+                <button
+                  type="button"
+                  onClick={() => setShowSignupPassword(!showSignupPassword)}
+                  style={{
+                    position: 'absolute',
+                    right: '12px',
+                    top: '50%',
+                    transform: 'translateY(-50%)',
+                    background: 'transparent',
+                    border: 'none',
+                    color: 'var(--text-muted)',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    padding: '4px'
+                  }}
+                  title={showSignupPassword ? "Hide password" : "Show password"}
+                  aria-label={showSignupPassword ? "Hide password" : "Show password"}
+                >
+                  {showSignupPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                </button>
               </div>
               {password && (
                 <div className="password-strength">
@@ -611,15 +665,37 @@ export default function Auth({ onLoginSuccess }) {
               <label style={{ fontWeight: 'bold' }}>New Password</label>
               <div style={{ position: 'relative' }}>
                 <input
-                  type="password"
+                  type={showNewPassword ? "text" : "password"}
                   placeholder="Enter new password (min 6 characters)"
                   value={newPassword}
                   onChange={(e) => setNewPassword(e.target.value)}
                   disabled={loading}
                   required
-                  style={{ paddingLeft: '38px', fontWeight: 'bold' }}
+                  style={{ paddingLeft: '38px', paddingRight: '40px', fontWeight: 'bold' }}
                 />
                 <KeyRound size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+                <button
+                  type="button"
+                  onClick={() => setShowNewPassword(!showNewPassword)}
+                  style={{
+                    position: 'absolute',
+                    right: '12px',
+                    top: '50%',
+                    transform: 'translateY(-50%)',
+                    background: 'transparent',
+                    border: 'none',
+                    color: 'var(--text-muted)',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    padding: '4px'
+                  }}
+                  title={showNewPassword ? "Hide password" : "Show password"}
+                  aria-label={showNewPassword ? "Hide password" : "Show password"}
+                >
+                  {showNewPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                </button>
               </div>
               {newPassword && (
                 <div className="password-strength">
@@ -638,15 +714,37 @@ export default function Auth({ onLoginSuccess }) {
               <label style={{ fontWeight: 'bold' }}>Confirm Password</label>
               <div style={{ position: 'relative' }}>
                 <input
-                  type="password"
+                  type={showConfirmPassword ? "text" : "password"}
                   placeholder="Re-enter new password"
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
                   disabled={loading}
                   required
-                  style={{ paddingLeft: '38px', fontWeight: 'bold' }}
+                  style={{ paddingLeft: '38px', paddingRight: '40px', fontWeight: 'bold' }}
                 />
                 <KeyRound size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+                <button
+                  type="button"
+                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                  style={{
+                    position: 'absolute',
+                    right: '12px',
+                    top: '50%',
+                    transform: 'translateY(-50%)',
+                    background: 'transparent',
+                    border: 'none',
+                    color: 'var(--text-muted)',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    padding: '4px'
+                  }}
+                  title={showConfirmPassword ? "Hide password" : "Show password"}
+                  aria-label={showConfirmPassword ? "Hide password" : "Show password"}
+                >
+                  {showConfirmPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                </button>
               </div>
               {confirmPassword && newPassword && confirmPassword !== newPassword && (
                 <span style={{ fontSize: '11px', color: '#ef4444', fontWeight: '700', marginTop: '4px', display: 'block' }}>
