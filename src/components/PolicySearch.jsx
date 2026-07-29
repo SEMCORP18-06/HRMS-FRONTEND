@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../utils/api';
 import ConfirmModal from './ConfirmModal';
-import { Plus, BookOpen, Tag, FileText, CheckCircle, Trash2, Download, Eye, FileType } from 'lucide-react';
+import { Plus, BookOpen, Tag, FileText, CheckCircle, Trash2, Download, Eye, FileType, RotateCcw, Archive } from 'lucide-react';
 import mammoth from 'mammoth';
 
 export default function PolicySearch({ user }) {
   const [policies, setPolicies] = useState([]);
+  const [archivedPolicies, setArchivedPolicies] = useState([]);
+  const [viewTab, setViewTab] = useState('active'); // 'active' or 'trash'
   const [category, setCategory] = useState('');
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
@@ -38,11 +40,16 @@ export default function PolicySearch({ user }) {
 
   const fetchPolicies = async () => {
     try {
-      const data = await api.policies.list();
-      setPolicies(data);
-      // Select first policy by default if list has items and none is selected
-      if (data.length > 0 && !selectedPolicyId) {
-        setSelectedPolicyId(data[0].id);
+      const activeData = await api.policies.list(false);
+      setPolicies(activeData);
+
+      if (isAdmin) {
+        const archivedData = await api.policies.list(true);
+        setArchivedPolicies(archivedData);
+      }
+
+      if (activeData.length > 0 && !selectedPolicyId) {
+        setSelectedPolicyId(activeData[0].id);
       }
     } catch (err) {
       console.error(err);
@@ -53,27 +60,70 @@ export default function PolicySearch({ user }) {
     if (!policyId) return;
     setConfirmConfig({
       isOpen: true,
-      title: 'Delete Policy SOP',
-      message: `Are you sure you want to delete the policy SOP "${policyTitle}"?\n\nThis will permanently remove the SOP and any uploaded policy document from the Centralized Knowledge Base.`,
-      confirmText: 'Delete Policy',
+      title: 'Move Policy to Trash',
+      message: `Are you sure you want to delete the policy SOP "${policyTitle}"?\n\nIt will be moved to the Trash / Recovery Bin where you can restore it anytime.`,
+      confirmText: 'Move to Trash',
       cancelText: 'Cancel',
       type: 'danger',
       onConfirm: async () => {
         closeConfirm();
         try {
           await api.policies.delete(policyId);
-          setStatus(`Policy "${policyTitle}" deleted successfully.`);
+          setStatus(`Policy "${policyTitle}" moved to Trash / Recovery Bin.`);
           setTimeout(() => setStatus(''), 3000);
-          
-          setPolicies(prev => {
-            const nextList = prev.filter(p => p.id !== policyId);
-            if (selectedPolicyId === policyId) {
-              setSelectedPolicyId(nextList.length > 0 ? nextList[0].id : null);
-            }
-            return nextList;
-          });
+          fetchPolicies();
         } catch (err) {
           setError(`Failed to delete policy: ${err.message}`);
+          setTimeout(() => setError(''), 3000);
+        }
+      },
+      onCancel: closeConfirm
+    });
+  };
+
+  const handleRestorePolicy = (policyId, policyTitle) => {
+    if (!policyId) return;
+    setConfirmConfig({
+      isOpen: true,
+      title: 'Restore Policy SOP',
+      message: `Do you want to restore the policy SOP "${policyTitle}" back to the active Centralized Knowledge Base?`,
+      confirmText: 'Restore Policy',
+      cancelText: 'Cancel',
+      type: 'success',
+      onConfirm: async () => {
+        closeConfirm();
+        try {
+          await api.policies.restore(policyId);
+          setStatus(`Policy "${policyTitle}" restored successfully to active roster!`);
+          setTimeout(() => setStatus(''), 3000);
+          fetchPolicies();
+        } catch (err) {
+          setError(`Failed to restore policy: ${err.message}`);
+          setTimeout(() => setError(''), 3000);
+        }
+      },
+      onCancel: closeConfirm
+    });
+  };
+
+  const handlePermanentDeletePolicy = (policyId, policyTitle) => {
+    if (!policyId) return;
+    setConfirmConfig({
+      isOpen: true,
+      title: 'Permanently Delete Policy',
+      message: `Are you sure you want to PERMANENTLY delete "${policyTitle}"?\n\nThis action cannot be undone and cannot be recovered.`,
+      confirmText: 'Permanently Delete',
+      cancelText: 'Cancel',
+      type: 'danger',
+      onConfirm: async () => {
+        closeConfirm();
+        try {
+          await api.policies.permanentDelete(policyId);
+          setStatus(`Policy "${policyTitle}" permanently deleted.`);
+          setTimeout(() => setStatus(''), 3000);
+          fetchPolicies();
+        } catch (err) {
+          setError(`Failed to permanently delete policy: ${err.message}`);
           setTimeout(() => setError(''), 3000);
         }
       },
@@ -350,14 +400,15 @@ export default function PolicySearch({ user }) {
     document.body.removeChild(a);
   };
 
-  // Filter policies based on selected category tab
-  const filteredPolicies = policies.filter(p => 
+  // Filter policies based on selected category tab and active/trash viewTab
+  const currentList = viewTab === 'active' ? policies : archivedPolicies;
+  const filteredPolicies = currentList.filter(p => 
     selectedCategoryFilter === 'All' ? true : p.category === selectedCategoryFilter
   );
 
-  const selectedPolicy = policies.find(p => p.id === selectedPolicyId);
+  const selectedPolicy = currentList.find(p => p.id === selectedPolicyId);
 
-  const categories = ['All', ...new Set(policies.map(p => p.category).filter(Boolean))];
+  const categories = ['All', ...new Set(currentList.map(p => p.category).filter(Boolean))];
 
   return (
     <div className="module-container" style={{ width: '100%', padding: '20px 30px' }}>
@@ -460,6 +511,57 @@ export default function PolicySearch({ user }) {
 
           {/* Right Column: Browse & Preview */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+            {/* View Tab Switcher: Active Policies vs Trash / Recovery Bin */}
+            <div style={{ display: 'flex', gap: '10px' }}>
+              <button
+                onClick={() => {
+                  setViewTab('active');
+                  setSelectedCategoryFilter('All');
+                  setSelectedPolicyId(policies[0]?.id || null);
+                }}
+                style={{
+                  background: viewTab === 'active' ? 'var(--brand-blue)' : 'rgba(255,255,255,0.03)',
+                  color: viewTab === 'active' ? 'white' : 'var(--text-secondary)',
+                  border: '1px solid var(--border-glass)',
+                  borderRadius: '12px',
+                  padding: '8px 16px',
+                  fontSize: '13px',
+                  fontWeight: '700',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  transition: 'all 0.15s ease'
+                }}
+              >
+                <BookOpen size={15} /> Active Policies ({policies.length})
+              </button>
+
+              <button
+                onClick={() => {
+                  setViewTab('trash');
+                  setSelectedCategoryFilter('All');
+                  setSelectedPolicyId(archivedPolicies[0]?.id || null);
+                }}
+                style={{
+                  background: viewTab === 'trash' ? '#ef4444' : 'rgba(255,255,255,0.03)',
+                  color: viewTab === 'trash' ? 'white' : 'var(--text-secondary)',
+                  border: '1px solid var(--border-glass)',
+                  borderRadius: '12px',
+                  padding: '8px 16px',
+                  fontSize: '13px',
+                  fontWeight: '700',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  transition: 'all 0.15s ease'
+                }}
+              >
+                <RotateCcw size={15} /> Trash / Recovery Bin ({archivedPolicies.length})
+              </button>
+            </div>
+
             {/* Category Filter Tabs */}
             <div style={{ display: 'flex', gap: '8px', overflowX: 'auto', borderBottom: '1px solid var(--border-glass)', paddingBottom: '12px' }}>
               {categories.map(cat => (
@@ -468,7 +570,7 @@ export default function PolicySearch({ user }) {
                   onClick={() => setSelectedCategoryFilter(cat)}
                   style={{
                     background: selectedCategoryFilter === cat ? 'var(--brand-blue)' : 'rgba(255,255,255,0.03)',
-                    color: selectedCategoryFilter === cat ? '#white' : 'var(--text-secondary)',
+                    color: selectedCategoryFilter === cat ? 'white' : 'var(--text-secondary)',
                     border: '1px solid var(--border-glass)',
                     borderRadius: '30px',
                     padding: '6px 14px',
@@ -489,11 +591,13 @@ export default function PolicySearch({ user }) {
               {/* Policies List Horizontal/Grid */}
               <div>
                 <h4 style={{ fontSize: '13px', fontWeight: '800', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '10px' }}>
-                  Select Document to View ({filteredPolicies.length})
+                  {viewTab === 'active' ? 'Select Document to View' : 'Select Deleted Document to Recover'} ({filteredPolicies.length})
                 </h4>
                 <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', maxHeight: '180px', overflowY: 'auto', paddingRight: '4px' }}>
                   {filteredPolicies.length === 0 ? (
-                    <div style={{ color: 'var(--text-secondary)', fontSize: '13px', padding: '15px 0' }}>No policy documents registered under this category.</div>
+                    <div style={{ color: 'var(--text-secondary)', fontSize: '13px', padding: '15px 0' }}>
+                      {viewTab === 'active' ? 'No active policy documents registered under this category.' : 'No deleted policy documents in Recovery Bin.'}
+                    </div>
                   ) : (
                     filteredPolicies.map(p => (
                       <div 
@@ -525,31 +629,59 @@ export default function PolicySearch({ user }) {
                         }}>
                           {p.category}
                         </span>
+
                         {isAdmin && (
-                          <button
-                            title="Delete Policy"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleDeletePolicy(p.id, p.title);
-                            }}
-                            style={{
-                              background: 'rgba(239, 68, 68, 0.1)',
-                              border: '1px solid rgba(239, 68, 68, 0.2)',
-                              color: '#ef4444',
-                              cursor: 'pointer',
-                              padding: '3px 7px',
-                              borderRadius: '6px',
-                              display: 'flex',
-                              alignItems: 'center',
-                              gap: '4px',
-                              fontSize: '11px',
-                              fontWeight: '700',
-                              marginLeft: 'auto',
-                              transition: 'all 0.15s ease'
-                            }}
-                          >
-                            <Trash2 size={12} /> Delete
-                          </button>
+                          viewTab === 'active' ? (
+                            <button
+                              title="Move to Trash"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleDeletePolicy(p.id, p.title);
+                              }}
+                              style={{
+                                background: 'rgba(239, 68, 68, 0.1)',
+                                border: '1px solid rgba(239, 68, 68, 0.2)',
+                                color: '#ef4444',
+                                cursor: 'pointer',
+                                padding: '3px 7px',
+                                borderRadius: '6px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '4px',
+                                fontSize: '11px',
+                                fontWeight: '700',
+                                marginLeft: 'auto',
+                                transition: 'all 0.15s ease'
+                              }}
+                            >
+                              <Trash2 size={12} /> Delete
+                            </button>
+                          ) : (
+                            <button
+                              title="Restore Policy"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleRestorePolicy(p.id, p.title);
+                              }}
+                              style={{
+                                background: 'rgba(16, 185, 129, 0.15)',
+                                border: '1px solid rgba(16, 185, 129, 0.3)',
+                                color: '#10b981',
+                                cursor: 'pointer',
+                                padding: '3px 7px',
+                                borderRadius: '6px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '4px',
+                                fontSize: '11px',
+                                fontWeight: '700',
+                                marginLeft: 'auto',
+                                transition: 'all 0.15s ease'
+                              }}
+                            >
+                              <RotateCcw size={12} /> Restore
+                            </button>
+                          )
                         )}
                       </div>
                     ))
@@ -575,19 +707,26 @@ export default function PolicySearch({ user }) {
                       <FileText size={18} style={{ color: '#6366f1' }} />
                       {selectedPolicy.title}
                     </h3>
-                    <span style={{ 
-                      fontSize: '11px', 
-                      fontWeight: '800',
-                      background: 'rgba(99, 102, 241, 0.12)', 
-                      color: '#818cf8',
-                      padding: '4px 10px', 
-                      borderRadius: '20px',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '4px'
-                    }}>
-                      <Tag size={10} /> {selectedPolicy.category}
-                    </span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      {viewTab === 'trash' && (
+                        <span style={{ fontSize: '10px', fontWeight: '800', background: 'rgba(239, 68, 68, 0.15)', color: '#ef4444', padding: '3px 8px', borderRadius: '6px' }}>
+                          🗑️ DELETED / TRASH
+                        </span>
+                      )}
+                      <span style={{ 
+                        fontSize: '11px', 
+                        fontWeight: '800',
+                        background: 'rgba(99, 102, 241, 0.12)', 
+                        color: '#818cf8',
+                        padding: '4px 10px', 
+                        borderRadius: '20px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '4px'
+                      }}>
+                        <Tag size={10} /> {selectedPolicy.category}
+                      </span>
+                    </div>
                   </div>
                   <div style={{ 
                     fontSize: '14px', 
@@ -648,26 +787,69 @@ export default function PolicySearch({ user }) {
                     )}
 
                     {isAdmin && (
-                      <button 
-                        onClick={() => handleDeletePolicy(selectedPolicy.id, selectedPolicy.title)}
-                        style={{
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          gap: '8px',
-                          background: 'rgba(239, 68, 68, 0.1)',
-                          border: '1px solid rgba(239, 68, 68, 0.3)',
-                          color: '#ef4444',
-                          padding: '10px 18px',
-                          borderRadius: '10px',
-                          fontSize: '13px',
-                          fontWeight: '700',
-                          cursor: 'pointer',
-                          transition: 'all 0.2s ease',
-                          marginLeft: selectedPolicy.file_url ? 'auto' : '0'
-                        }}
-                      >
-                        <Trash2 size={16} /> Delete Policy
-                      </button>
+                      viewTab === 'active' ? (
+                        <button 
+                          onClick={() => handleDeletePolicy(selectedPolicy.id, selectedPolicy.title)}
+                          style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '8px',
+                            background: 'rgba(239, 68, 68, 0.1)',
+                            border: '1px solid rgba(239, 68, 68, 0.3)',
+                            color: '#ef4444',
+                            padding: '10px 18px',
+                            borderRadius: '10px',
+                            fontSize: '13px',
+                            fontWeight: '700',
+                            cursor: 'pointer',
+                            transition: 'all 0.2s ease',
+                            marginLeft: selectedPolicy.file_url ? 'auto' : '0'
+                          }}
+                        >
+                          <Trash2 size={16} /> Move to Trash
+                        </button>
+                      ) : (
+                        <div style={{ display: 'flex', gap: '10px', marginLeft: selectedPolicy.file_url ? 'auto' : '0' }}>
+                          <button 
+                            onClick={() => handleRestorePolicy(selectedPolicy.id, selectedPolicy.title)}
+                            style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '8px',
+                              background: '#10b981',
+                              color: 'white',
+                              padding: '10px 18px',
+                              borderRadius: '10px',
+                              fontSize: '13px',
+                              fontWeight: '700',
+                              border: 'none',
+                              boxShadow: '0 4px 10px rgba(16, 185, 129, 0.3)',
+                              cursor: 'pointer'
+                            }}
+                          >
+                            <RotateCcw size={16} /> Restore Policy
+                          </button>
+
+                          <button 
+                            onClick={() => handlePermanentDeletePolicy(selectedPolicy.id, selectedPolicy.title)}
+                            style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '8px',
+                              background: 'rgba(239, 68, 68, 0.1)',
+                              border: '1px solid rgba(239, 68, 68, 0.3)',
+                              color: '#ef4444',
+                              padding: '10px 18px',
+                              borderRadius: '10px',
+                              fontSize: '13px',
+                              fontWeight: '700',
+                              cursor: 'pointer'
+                            }}
+                          >
+                            <Trash2 size={16} /> Permanently Delete
+                          </button>
+                        </div>
+                      )
                     )}
                   </div>
                 </div>

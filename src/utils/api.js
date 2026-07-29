@@ -255,12 +255,18 @@ export const api = {
     })
   },
   policies: {
-    list: () => request('/policies'),
+    list: (includeArchived = false) => request(`/policies${includeArchived ? '?archived=true' : ''}`),
     create: (policy) => request('/policies', {
       method: 'POST',
       body: policy
     }),
     delete: (policyId) => request(`/policies/${policyId}`, {
+      method: 'DELETE'
+    }),
+    restore: (policyId) => request(`/policies/${policyId}/restore`, {
+      method: 'PUT'
+    }),
+    permanentDelete: (policyId) => request(`/policies/${policyId}/permanent`, {
       method: 'DELETE'
     }),
     search: (query) => request(`/policies/search?q=${encodeURIComponent(query)}`)
