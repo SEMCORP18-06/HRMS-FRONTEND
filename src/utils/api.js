@@ -260,6 +260,9 @@ export const api = {
       method: 'POST',
       body: policy
     }),
+    delete: (policyId) => request(`/policies/${policyId}`, {
+      method: 'DELETE'
+    }),
     search: (query) => request(`/policies/search?q=${encodeURIComponent(query)}`)
   },
   interviews: {
