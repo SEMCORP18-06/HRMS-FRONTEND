@@ -117,8 +117,18 @@ export default function OnboardingForm({ token, onComplete }) {
       const res = await fetch('https://hrms-backend-gamma.vercel.app/api/invite/submit', { method: 'POST', body: fd });
 
       if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.detail || 'Failed to submit onboarding details.');
+        // The server (or Vercel proxy) may return plain text errors (e.g. "Request Entity Too Large")
+        // instead of JSON, so read as text first and attempt JSON.parse safely.
+        const text = await res.text();
+        let detail = 'Failed to submit onboarding details.';
+        try {
+          const data = JSON.parse(text);
+          detail = data.detail || detail;
+        } catch {
+          // Non-JSON response — use the raw text (e.g. "Request Entity Too Large")
+          if (text) detail = text;
+        }
+        throw new Error(detail);
       }
 
       setSuccess(true);
