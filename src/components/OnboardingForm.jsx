@@ -74,12 +74,23 @@ export default function OnboardingForm({ token, onComplete }) {
     }
   }, [dob]);
 
+  // Max file size per document: 700 KB; total payload cap: 4 MB (Vercel limit is 4.5 MB)
+  const MAX_FILE_SIZE = 700 * 1024;      // 700 KB per file
+  const MAX_TOTAL_SIZE = 4 * 1024 * 1024; // 4 MB total
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setSubmitting(true);
     setError('');
 
     try {
+      // ── Validate total file size before sending ──────────────────────────
+      const allFiles = [aadhaar, pan, profilePhoto, academicProofs, passbook, experienceLetter].filter(Boolean);
+      const totalSize = allFiles.reduce((sum, f) => sum + f.size, 0);
+      if (totalSize > MAX_TOTAL_SIZE) {
+        const sizeMB = (totalSize / (1024 * 1024)).toFixed(1);
+        throw new Error(`Total file size (${sizeMB} MB) exceeds the 4 MB limit. Please compress or reduce your files.`);
+      }
       const fd = new FormData();
       // Profile fields
       fd.append('token', token);
@@ -228,7 +239,15 @@ export default function OnboardingForm({ token, onComplete }) {
             : <><Upload size={18} style={{ color: '#9ca3af', flexShrink: 0 }} /><span style={{ fontSize: '14px', color: '#9ca3af' }}>Click to upload {hint || ''}</span></>
           }
         </div>
-        <input ref={ref} type="file" accept={accept} style={{ display: 'none' }} onChange={(e) => setFile(e.target.files[0] || null)} />
+        <input ref={ref} type="file" accept={accept} style={{ display: 'none' }} onChange={(e) => {
+          const f = e.target.files[0] || null;
+          if (f && f.size > MAX_FILE_SIZE) {
+            setError(`"${f.name}" is ${(f.size / 1024).toFixed(0)} KB — max allowed is 700 KB per file. Please compress or resize it.`);
+            e.target.value = '';
+            return;
+          }
+          setFile(f);
+        }} />
       </div>
     );
   };
