@@ -402,6 +402,7 @@ export default function OnboardingForm({ token, onComplete }) {
               <p style={{ fontSize: '14px', color: '#1e40af', margin: 0, lineHeight: '1.6' }}>
                 Upload your documents now to save time. All files are encrypted and securely stored.
                 Documents marked <strong style={{ color: '#ef4444' }}>*</strong> are required for payroll and onboarding completion.
+                <strong style={{ color: '#b91c1c' }}>Each file must be under 700 KB.</strong>{' '}
                 You may skip and upload later through the <strong>Employee Document Vault</strong> once your account is active.
               </p>
             </div>
