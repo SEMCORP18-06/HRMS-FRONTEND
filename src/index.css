@@ -1369,3 +1369,45 @@ body.light-mode .otp-input-container input {
 .word-preview-content ul, .word-preview-content ol { margin-left: 24px !important; margin-bottom: 14px !important; color: #334155 !important; }
 .word-preview-content li { margin-bottom: 6px !important; font-size: 14.5px !important; line-height: 1.6 !important; }
 
+
+
+/* Universal Form Control & Dropdown Contrast Fixes for Dark & Light Mode */
+input, select, textarea {
+  color: var(--text-primary);
+  background-color: var(--bg-card);
+  border-color: var(--border-glass);
+}
+
+select option {
+  background-color: var(--bg-card) !important;
+  color: var(--text-primary) !important;
+}
+
+body.light-mode input,
+body.light-mode select,
+body.light-mode textarea {
+  color: #171717 !important;
+  background-color: #ffffff !important;
+  border-color: rgba(0, 0, 0, 0.15) !important;
+}
+
+body.light-mode select option {
+  background-color: #ffffff !important;
+  color: #171717 !important;
+}
+
+body.light-mode input::placeholder,
+body.light-mode textarea::placeholder {
+  color: #737373 !important;
+}
+
+body.light-mode .attendance-container input,
+body.light-mode .attendance-container select,
+body.light-mode .attendance-container option {
+  color: #171717 !important;
+  background-color: #ffffff !important;
+}
+
+body.light-mode .attendance-container label {
+  color: #525252 !important;
+}

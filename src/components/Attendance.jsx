@@ -515,14 +515,15 @@ Note: All recipients will be included on a single email thread.`,
                     borderRadius: '8px',
                     border: '1px solid var(--border-glass)',
                     background: 'var(--bg-card, #1e293b)',
-                    color: '#fff',
+                    color: 'var(--text-primary)',
+                    backgroundColor: 'var(--bg-card)',
                     fontSize: '14px',
                     outline: 'none'
                   }}
                 >
-                  <option value="Casual Leave">Casual Leave (CL)</option>
-                  <option value="Sick Leave">Sick Leave (SL)</option>
-                  <option value="Privileged Leave">Privileged Leave (PL)</option>
+                  <option value="Casual Leave" style={{ backgroundColor: 'var(--bg-card)', color: 'var(--text-primary)' }}>Casual Leave (CL)</option>
+                  <option value="Sick Leave" style={{ backgroundColor: 'var(--bg-card)', color: 'var(--text-primary)' }}>Sick Leave (SL)</option>
+                  <option value="Privileged Leave" style={{ backgroundColor: 'var(--bg-card)', color: 'var(--text-primary)' }}>Privileged Leave (PL)</option>
                 </select>
               </div>
             )}
@@ -650,7 +651,8 @@ Note: All recipients will be included on a single email thread.`,
                             borderRadius: '16px',
                             border: isSel ? '1px solid #3b82f6' : '1px solid var(--border-glass)',
                             background: isSel ? '#3b82f6' : 'rgba(255,255,255,0.02)',
-                            color: '#fff',
+                            color: 'var(--text-primary)',
+                    backgroundColor: 'var(--bg-card)',
                             fontSize: '11px',
                             fontWeight: '600',
                             cursor: 'pointer'
@@ -678,7 +680,8 @@ Note: All recipients will be included on a single email thread.`,
                         borderRadius: '6px',
                         border: '1px solid var(--border-glass)',
                         background: 'rgba(0,0,0,0.2)',
-                        color: '#fff',
+                        color: 'var(--text-primary)',
+                    backgroundColor: 'var(--bg-card)',
                         fontSize: '12px',
                         outline: 'none'
                       }}
@@ -754,7 +757,8 @@ Note: All recipients will be included on a single email thread.`,
               borderRadius: '10px',
               border: 'none',
               background: isLocked ? '#64748b' : 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
-              color: '#fff',
+              color: 'var(--text-primary)',
+                    backgroundColor: 'var(--bg-card)',
               fontWeight: '700',
               fontSize: '15px',
               cursor: isLocked ? 'not-allowed' : 'pointer',
@@ -982,7 +986,8 @@ ${titleText}`}
                   borderRadius: '8px',
                   border: 'none',
                   background: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)',
-                  color: '#fff',
+                  color: 'var(--text-primary)',
+                    backgroundColor: 'var(--bg-card)',
                   fontSize: '13px',
                   fontWeight: 'bold',
                   cursor: 'pointer',
@@ -1015,9 +1020,10 @@ ${titleText}`}
                 <select
                   value={allocTarget}
                   onChange={e => setAllocTarget(e.target.value)}
-                  style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid var(--border-glass)', background: 'var(--bg-card, #1e293b)', color: '#fff', fontSize: '12px' }}
+                  style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid var(--border-glass)', background: 'var(--bg-card, #1e293b)', color: 'var(--text-primary)',
+                    backgroundColor: 'var(--bg-card)', fontSize: '12px' }}
                 >
-                  <option value="all">All Employees</option>
+                  <option value="all" style={{ backgroundColor: 'var(--bg-card)', color: 'var(--text-primary)' }}>All Employees</option>
                   {employees.map(emp => (
                     <option key={emp.id} value={emp.id}>{emp.name} ({emp.department})</option>
                   ))}
@@ -1025,25 +1031,30 @@ ${titleText}`}
               </div>
               <div>
                 <label style={{ display: 'block', fontSize: '11px', fontWeight: 'bold', color: '#94a3b8', marginBottom: '4px' }}>Weekly Offs (WO)</label>
-                <input type="number" min="0" value={allocWO} onChange={e => setAllocWO(e.target.value)} style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid var(--border-glass)', background: 'rgba(0,0,0,0.2)', color: '#fff', fontSize: '12px' }} />
+                <input type="number" min="0" value={allocWO} onChange={e => setAllocWO(e.target.value)} style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid var(--border-glass)', background: 'rgba(0,0,0,0.2)', color: 'var(--text-primary)',
+                    backgroundColor: 'var(--bg-card)', fontSize: '12px' }} />
               </div>
               <div>
                 <label style={{ display: 'block', fontSize: '11px', fontWeight: 'bold', color: '#94a3b8', marginBottom: '4px' }}>Sick Leave (SL)</label>
-                <input type="number" min="0" value={allocSL} onChange={e => setAllocSL(e.target.value)} style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid var(--border-glass)', background: 'rgba(0,0,0,0.2)', color: '#fff', fontSize: '12px' }} />
+                <input type="number" min="0" value={allocSL} onChange={e => setAllocSL(e.target.value)} style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid var(--border-glass)', background: 'rgba(0,0,0,0.2)', color: 'var(--text-primary)',
+                    backgroundColor: 'var(--bg-card)', fontSize: '12px' }} />
               </div>
               <div>
                 <label style={{ display: 'block', fontSize: '11px', fontWeight: 'bold', color: '#94a3b8', marginBottom: '4px' }}>Casual Leave (CL)</label>
-                <input type="number" min="0" value={allocCL} onChange={e => setAllocCL(e.target.value)} style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid var(--border-glass)', background: 'rgba(0,0,0,0.2)', color: '#fff', fontSize: '12px' }} />
+                <input type="number" min="0" value={allocCL} onChange={e => setAllocCL(e.target.value)} style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid var(--border-glass)', background: 'rgba(0,0,0,0.2)', color: 'var(--text-primary)',
+                    backgroundColor: 'var(--bg-card)', fontSize: '12px' }} />
               </div>
               <div>
                 <label style={{ display: 'block', fontSize: '11px', fontWeight: 'bold', color: '#94a3b8', marginBottom: '4px' }}>Privileged Leave (PL)</label>
-                <input type="number" min="0" value={allocPL} onChange={e => setAllocPL(e.target.value)} style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid var(--border-glass)', background: 'rgba(0,0,0,0.2)', color: '#fff', fontSize: '12px' }} />
+                <input type="number" min="0" value={allocPL} onChange={e => setAllocPL(e.target.value)} style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid var(--border-glass)', background: 'rgba(0,0,0,0.2)', color: 'var(--text-primary)',
+                    backgroundColor: 'var(--bg-card)', fontSize: '12px' }} />
               </div>
             </div>
             <button
               onClick={handleSaveLeaveAllocation}
               disabled={allocSaving}
-              style={{ padding: '8px 16px', borderRadius: '8px', border: 'none', background: '#10b981', color: '#fff', fontWeight: 'bold', fontSize: '13px', cursor: 'pointer' }}
+              style={{ padding: '8px 16px', borderRadius: '8px', border: 'none', background: '#10b981', color: 'var(--text-primary)',
+                    backgroundColor: 'var(--bg-card)', fontWeight: 'bold', fontSize: '13px', cursor: 'pointer' }}
             >
               {allocSaving ? 'Saving...' : 'Save Allocations'}
             </button>
