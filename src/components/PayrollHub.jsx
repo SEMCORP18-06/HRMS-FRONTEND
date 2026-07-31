@@ -808,7 +808,7 @@ Note: The attached PDF will be encrypted using Option 2 password standard (First
               </div>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '15px', marginTop: '15px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: '15px', marginTop: '15px' }}>
               <div>
                 <label style={labelStyle}>Input Type</label>
                 <select value={calcInputType} onChange={(e) => setCalcInputType(e.target.value)} style={selectStyle}>
@@ -821,7 +821,7 @@ Note: The attached PDF will be encrypted using Option 2 password standard (First
                 <label style={labelStyle}>Monthly Amount (₹)</label>
                 <input
                   type="number"
-                  placeholder="e.g. 25000"
+                  placeholder="e.g. 32000"
                   value={calcAmount}
                   onChange={(e) => setCalcAmount(e.target.value)}
                   style={inputStyle}
@@ -834,6 +834,14 @@ Note: The attached PDF will be encrypted using Option 2 password standard (First
                   {['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'].map(m => (
                     <option key={m} value={m} style={{ background: 'var(--bg-card)', color: 'var(--text-primary)' }}>{m}</option>
                   ))}
+                </select>
+              </div>
+
+              <div>
+                <label style={labelStyle}>Professional Tax (PT)</label>
+                <select value={ptType} onChange={(e) => setPtType(e.target.value)} style={selectStyle}>
+                  <option value="standard" style={{ background: 'var(--bg-card)', color: 'var(--text-primary)' }}>₹200/month (₹2,400/yr)</option>
+                  <option value="yearly2500_feb" style={{ background: 'var(--bg-card)', color: 'var(--text-primary)' }}>₹200/month, Feb ₹300 (₹2,500/yr)</option>
                 </select>
               </div>
             </div>
@@ -871,32 +879,36 @@ Note: The attached PDF will be encrypted using Option 2 password standard (First
                   <thead>
                     <tr>
                       <th>Component</th>
-                      <th style={{ textAlign: 'right' }}>Monthly (INR)</th>
-                      <th style={{ textAlign: 'right' }}>Yearly (INR)</th>
+                      <th style={{ textAlign: 'right' }}>Monthly - INR</th>
+                      <th style={{ textAlign: 'right' }}>Yearly - INR</th>
                     </tr>
                   </thead>
                   <tbody>
-                    <tr><td>Basic Salary (50% Gross)</td><td style={{ textAlign: 'right' }}>₹{safeFmt(calcResult.basic)}</td><td style={{ textAlign: 'right' }}>₹{safeFmt(calcResult.basic * 12)}</td></tr>
-                    <tr><td>HRA (40% Basic)</td><td style={{ textAlign: 'right' }}>₹{safeFmt(calcResult.hra)}</td><td style={{ textAlign: 'right' }}>₹{safeFmt(calcResult.hra * 12)}</td></tr>
-                    <tr><td>Conveyance Allowance</td><td style={{ textAlign: 'right' }}>₹{safeFmt(calcResult.conveyance)}</td><td style={{ textAlign: 'right' }}>₹{safeFmt(calcResult.conveyance * 12)}</td></tr>
-                    <tr><td>Education Allowance</td><td style={{ textAlign: 'right' }}>₹{safeFmt(calcResult.education)}</td><td style={{ textAlign: 'right' }}>₹{safeFmt(calcResult.education * 12)}</td></tr>
-                    <tr><td>Medical Allowance</td><td style={{ textAlign: 'right' }}>₹{safeFmt(calcResult.medical)}</td><td style={{ textAlign: 'right' }}>₹{safeFmt(calcResult.medical * 12)}</td></tr>
-                    <tr><td>Special Allowance</td><td style={{ textAlign: 'right' }}>₹{safeFmt(calcResult.special)}</td><td style={{ textAlign: 'right' }}>₹{safeFmt(calcResult.special * 12)}</td></tr>
-                    <tr style={{ background: 'rgba(16, 185, 129, 0.05)', fontWeight: 'bold' }}><td>Gross Salary</td><td style={{ textAlign: 'right', color: '#10b981' }}>₹{safeFmt(calcResult.gross)}</td><td style={{ textAlign: 'right', color: '#10b981' }}>₹{safeFmt(calcResult.gross * 12)}</td></tr>
-                    <tr><td>Statutory Bonus (8.33%)</td><td style={{ textAlign: 'right' }}>₹{safeFmt(calcResult.bonus)}</td><td style={{ textAlign: 'right' }}>₹{safeFmt(calcResult.bonus * 12)}</td></tr>
-                    <tr style={{ background: 'rgba(16, 185, 129, 0.1)', fontWeight: 'bold' }}><td>Final Gross Salary</td><td style={{ textAlign: 'right', color: '#10b981' }}>₹{safeFmt(calcResult.finalGross)}</td><td style={{ textAlign: 'right', color: '#10b981' }}>₹{safeFmt(calcResult.finalGross * 12)}</td></tr>
-                    <tr style={{ background: 'rgba(239, 68, 68, 0.04)' }}><td colSpan={3} style={{ fontWeight: 'bold', color: '#ef4444', fontSize: '12px' }}>Employee Deductions</td></tr>
-                    <tr><td>— PF (12%, Max base ₹15k)</td><td style={{ textAlign: 'right' }}>₹{safeFmt(calcResult.employeePF)}</td><td style={{ textAlign: 'right' }}>₹{safeFmt(calcResult.employeePF * 12)}</td></tr>
-                    <tr><td>— ESIC (0.75%)</td><td style={{ textAlign: 'right' }}>₹{safeFmt(calcResult.employeeESIC)}</td><td style={{ textAlign: 'right' }}>₹{safeFmt(calcResult.employeeESIC * 12)}</td></tr>
-                    <tr><td>— Professional Tax (PT)</td><td style={{ textAlign: 'right' }}>₹{safeFmt(calcResult.pt)}</td><td style={{ textAlign: 'right' }}>₹{safeFmt(calcResult.pt_yearly)}</td></tr>
-                    <tr style={{ background: 'rgba(239, 68, 68, 0.08)', fontWeight: 'bold' }}><td>Total Deductions</td><td style={{ textAlign: 'right', color: '#ef4444' }}>₹{safeFmt(calcResult.totalDeductions)}</td><td style={{ textAlign: 'right', color: '#ef4444' }}>₹{safeFmt((calcResult.employeePF * 12) + (calcResult.employeeESIC * 12) + (calcResult.pt_yearly || 0))}</td></tr>
-                    <tr style={{ background: 'rgba(59, 130, 246, 0.08)', fontWeight: 'bold' }}><td>Net Take Home Salary</td><td style={{ textAlign: 'right', color: '#3b82f6' }}>₹{safeFmt(calcResult.netTakeHome)}</td><td style={{ textAlign: 'right', color: '#3b82f6' }}>₹{safeFmt((calcResult.finalGross * 12) - ((calcResult.employeePF * 12) + (calcResult.employeeESIC * 12) + (calcResult.pt_yearly || 0)))}</td></tr>
-                    <tr style={{ background: 'rgba(139, 92, 246, 0.04)' }}><td colSpan={3} style={{ fontWeight: 'bold', color: '#8b5cf6', fontSize: '12px' }}>Employer Contributions</td></tr>
-                    <tr><td>— PF (Employer)</td><td style={{ textAlign: 'right' }}>₹{safeFmt(calcResult.employerPF)}</td><td style={{ textAlign: 'right' }}>₹{safeFmt(calcResult.employerPF * 12)}</td></tr>
-                    <tr><td>— ESIC (3.25%)</td><td style={{ textAlign: 'right' }}>₹{safeFmt(calcResult.employerESIC)}</td><td style={{ textAlign: 'right' }}>₹{safeFmt(calcResult.employerESIC * 12)}</td></tr>
-                    <tr><td>— Gratuity (4.81%)</td><td style={{ textAlign: 'right' }}>₹{safeFmt(calcResult.gratuity)}</td><td style={{ textAlign: 'right' }}>₹{safeFmt(calcResult.gratuity * 12)}</td></tr>
-                    <tr><td>— Others</td><td style={{ textAlign: 'right' }}>₹{safeFmt(calcResult.others)}</td><td style={{ textAlign: 'right' }}>₹{safeFmt(calcResult.others * 12)}</td></tr>
-                    <tr style={{ background: 'rgba(139, 92, 246, 0.1)', fontWeight: 'bold' }}><td>Total CTC of Employee</td><td style={{ textAlign: 'right', color: '#8b5cf6' }}>₹{safeFmt(calcResult.totalCTC)}</td><td style={{ textAlign: 'right', color: '#8b5cf6' }}>₹{safeFmt(calcResult.totalCTC * 12)}</td></tr>
+                    <tr><td>Basic Salary</td><td style={{ textAlign: 'right' }}>{safeFmt(calcResult.basic)}</td><td style={{ textAlign: 'right' }}>{safeFmt(calcResult.basic * 12)}</td></tr>
+                    <tr><td>HRA</td><td style={{ textAlign: 'right' }}>{safeFmt(calcResult.hra)}</td><td style={{ textAlign: 'right' }}>{safeFmt(calcResult.hra * 12)}</td></tr>
+                    <tr><td>Conveyance Allowance (max=Rs. 1600)</td><td style={{ textAlign: 'right' }}>{safeFmt(calcResult.conveyance)}</td><td style={{ textAlign: 'right' }}>{safeFmt(calcResult.conveyance * 12)}</td></tr>
+                    <tr><td>Education Allowance (max = Rs. 1200)</td><td style={{ textAlign: 'right' }}>{safeFmt(calcResult.education)}</td><td style={{ textAlign: 'right' }}>{safeFmt(calcResult.education * 12)}</td></tr>
+                    <tr><td>Medical Allowance (max=Rs.1250)</td><td style={{ textAlign: 'right' }}>{safeFmt(calcResult.medical)}</td><td style={{ textAlign: 'right' }}>{safeFmt(calcResult.medical * 12)}</td></tr>
+                    <tr><td>Special Allowance (Rest Amount)</td><td style={{ textAlign: 'right' }}>{safeFmt(calcResult.special)}</td><td style={{ textAlign: 'right' }}>{safeFmt(calcResult.special * 12)}</td></tr>
+                    <tr style={{ background: 'rgba(16, 185, 129, 0.05)', fontWeight: 'bold' }}><td>Gross Salary [A+B+C+D+E+F]</td><td style={{ textAlign: 'right', color: '#10b981' }}>{safeFmt(calcResult.gross)}</td><td style={{ textAlign: 'right', color: '#10b981' }}>{safeFmt(calcResult.gross * 12)}</td></tr>
+                    <tr style={{ color: '#94a3b8' }}><td>Other Benefits</td><td style={{ textAlign: 'right' }}>-</td><td style={{ textAlign: 'right' }}>-</td></tr>
+                    <tr><td>Statutory Bonus (8.33% of Rs. One Basic)</td><td style={{ textAlign: 'right' }}>{safeFmt(calcResult.bonus)}</td><td style={{ textAlign: 'right' }}>{safeFmt(calcResult.bonus * 12)}</td></tr>
+                    <tr style={{ background: 'rgba(245, 208, 54, 0.15)', fontWeight: 'bold' }}><td>Gross Salary</td><td style={{ textAlign: 'right', color: '#10b981' }}>{safeFmt(calcResult.finalGross)}</td><td style={{ textAlign: 'right', color: '#10b981' }}>{safeFmt(calcResult.finalGross * 12)}</td></tr>
+                    <tr><td colSpan={3} style={{ height: '6px', padding: 0, border: 'none' }}></td></tr>
+                    <tr style={{ background: 'rgba(239, 68, 68, 0.04)' }}><td style={{ fontWeight: 'bold' }}>Deductions</td><td style={{ textAlign: 'right' }}>-</td><td style={{ textAlign: 'right' }}></td></tr>
+                    <tr><td>PF (Employee Contribution) 12% of Basic</td><td style={{ textAlign: 'right' }}>{safeFmt(calcResult.employeePF)}</td><td style={{ textAlign: 'right' }}>{safeFmt(calcResult.employeePF * 12)}</td></tr>
+                    <tr><td>ESIC (Employee Contribution) 0.75% of</td><td style={{ textAlign: 'right' }}>{safeFmt(calcResult.employeeESIC)}</td><td style={{ textAlign: 'right' }}>{safeFmt(calcResult.employeeESIC * 12)}</td></tr>
+                    <tr style={{ color: '#94a3b8' }}><td>Other Deduction</td><td style={{ textAlign: 'right' }}>-</td><td style={{ textAlign: 'right' }}>-</td></tr>
+                    <tr><td>Professional Tax</td><td style={{ textAlign: 'right' }}>{safeFmt(calcResult.pt)}</td><td style={{ textAlign: 'right' }}></td></tr>
+                    <tr style={{ background: 'rgba(239, 68, 68, 0.08)', fontWeight: 'bold' }}><td>Total Deduction</td><td style={{ textAlign: 'right', color: '#ef4444' }}>{safeFmt(calcResult.totalDeductions)}</td><td style={{ textAlign: 'right', color: '#ef4444' }}>{safeFmt((calcResult.employeePF * 12) + (calcResult.employeeESIC * 12) + (calcResult.pt_yearly || 0))}</td></tr>
+                    <tr style={{ background: 'rgba(245, 208, 54, 0.15)', fontWeight: 'bold' }}><td>Net Take Home Salary (Gross Salary - Total Deductions)</td><td style={{ textAlign: 'right', color: '#3b82f6' }}>{safeFmt(calcResult.netTakeHome)}</td><td style={{ textAlign: 'right', color: '#3b82f6' }}>{safeFmt((calcResult.finalGross * 12) - ((calcResult.employeePF * 12) + (calcResult.employeeESIC * 12) + (calcResult.pt_yearly || 0)))}</td></tr>
+                    <tr><td colSpan={3} style={{ height: '6px', padding: 0, border: 'none' }}></td></tr>
+                    <tr style={{ background: 'rgba(139, 92, 246, 0.04)' }}><td style={{ fontWeight: 'bold' }}>Monthly CTC</td><td style={{ textAlign: 'right' }}></td><td style={{ textAlign: 'right' }}></td></tr>
+                    <tr><td>PF (Employer Contribution)</td><td style={{ textAlign: 'right' }}>{safeFmt(calcResult.employerPF)}</td><td style={{ textAlign: 'right' }}>{safeFmt(calcResult.employerPF * 12)}</td></tr>
+                    <tr><td>ESIC (Employer Contribution) (3.25% of Gross Salary)</td><td style={{ textAlign: 'right' }}>{safeFmt(calcResult.employerESIC)}</td><td style={{ textAlign: 'right' }}>{safeFmt(calcResult.employerESIC * 12)}</td></tr>
+                    <tr><td>Gratuity (4.81% of Basic)</td><td style={{ textAlign: 'right' }}>{safeFmt(calcResult.gratuity)}</td><td style={{ textAlign: 'right' }}>{safeFmt(calcResult.gratuity * 12)}</td></tr>
+                    <tr><td>Others (Insurance, Office Consumables, IT equipments etc)</td><td style={{ textAlign: 'right' }}>{safeFmt(calcResult.others)}</td><td style={{ textAlign: 'right' }}>{safeFmt(calcResult.others * 12)}</td></tr>
+                    <tr style={{ background: 'rgba(139, 92, 246, 0.1)', fontWeight: 'bold' }}><td>CTC of Employee</td><td style={{ textAlign: 'right', color: '#8b5cf6' }}>{safeFmt(calcResult.totalCTC)}</td><td style={{ textAlign: 'right', color: '#8b5cf6' }}>{safeFmt(calcResult.totalCTC * 12)}</td></tr>
                   </tbody>
                 </table>
               </div>
