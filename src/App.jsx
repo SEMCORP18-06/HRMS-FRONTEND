@@ -175,7 +175,7 @@ export default function App() {
         case 'attendance': return <Attendance activeTenant={activeTenant} user={effectiveUser} />;
         case 'directory': return <EmployeeDirectory activeTenant={activeTenant} />;
         case 'celebrations': return <Celebrations activeTenant={activeTenant} />;
-        case 'payroll': return <PayrollHub activeTenant={activeTenant} />;
+        case 'payroll': return <PayrollHub activeTenant={activeTenant} user={effectiveUser} />;
         case 'dailyPulse': return <DailyPulse activeTenant={activeTenant} />;
         case 'surpriseOps': return <SurpriseOps activeTenant={activeTenant} />;
         case 'lmsClub': return <LMSClub activeTenant={activeTenant} user={effectiveUser} />;

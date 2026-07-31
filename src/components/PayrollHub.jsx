@@ -6,7 +6,8 @@ import { IndianRupee, Upload, Mail, Check, AlertTriangle, Download, FileText, Ta
 const API_BASE = 'https://hrms-backend-gamma.vercel.app/api';
 
 export default function PayrollHub({ user }) {
-  const isAdmin = user?.role === 'Admin (HR)';
+  const storedRole = localStorage.getItem('hr_role') || localStorage.getItem('user_role');
+  const isAdmin = user?.role === 'Admin (HR)' || storedRole === 'Admin (HR)';
   const [payrolls, setPayrolls] = useState([]);
   const [uploadStatus, setUploadStatus] = useState('');
   const [emailStatus, setEmailStatus] = useState({});
