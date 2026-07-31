@@ -64,9 +64,9 @@ export const api = {
   },
   attendance: {
     getToday: () => request('/attendance/today'),
-    mark: (selection) => request('/attendance/mark', {
+    mark: (payload) => request('/attendance/mark', {
       method: 'POST',
-      body: { selection }
+      body: typeof payload === 'string' ? { selection: payload } : payload
     }),
     getMyMonth: (year, month) => request(`/attendance/my-month?year=${year}&month=${month}`),
     getAdminMonth: (year, month) => request(`/attendance/admin/month?year=${year}&month=${month}`),

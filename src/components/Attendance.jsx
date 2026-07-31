@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { api } from '../utils/api';
 import ConfirmModal from './ConfirmModal';
 import { 
-  Clock, Calendar, User, CheckCircle, AlertTriangle, ChevronLeft, ChevronRight, List, Grid, ShieldAlert, Lock, Unlock, Leaf 
+  Clock, Calendar, User, CheckCircle, AlertTriangle, ChevronLeft, ChevronRight, List, Grid, ShieldAlert, Lock, Unlock, Leaf, Send, Users, Filter, Check, Mail, Search
 } from 'lucide-react';
 
 const STATUS_OPTIONS = [
@@ -24,6 +24,19 @@ export default function Attendance({ activeTenant, user }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [myMonthRecords, setMyMonthRecords] = useState([]);
+
+  // New Employee Attendance Marking State
+  const [statusSelection, setStatusSelection] = useState('Leave'); // 'Absent', 'Weekly Off', 'Leave'
+  const [leaveCategory, setLeaveCategory] = useState('Casual Leave'); // 'Sick Leave', 'Casual Leave', 'Privileged Leave'
+  const [absenceReason, setAbsenceReason] = useState('');
+  const [handoverPerson, setHandoverPerson] = useState('');
+  const [broadcastMode, setBroadcastMode] = useState('all'); // 'all' or 'selective'
+  const [selectedDeptFilter, setSelectedDeptFilter] = useState('All');
+  const [selectedRecipients, setSelectedRecipients] = useState([]); // array of emails
+  const [employeeList, setEmployeeList] = useState([]);
+  const [submittingMarking, setSubmittingMarking] = useState(false);
+  const [markingSuccessMsg, setMarkingSuccessMsg] = useState('');
+  const [recipientSearchQuery, setRecipientSearchQuery] = useState('');
 
   // Confirm Modal state
   const [confirmConfig, setConfirmConfig] = useState({
@@ -110,59 +123,60 @@ export default function Attendance({ activeTenant, user }) {
       console.error('Failed to load lock status:', err);
     }
   };
-  const handleSaveLeaveAllocation = () => {
-    const targetEmp = employees.find(e => e.id === allocTarget);
-    setConfirmConfig({
-      isOpen: true,
-      title: 'Confirm Save Leave Allocations',
-      message: `Are you sure you want to save leave allocations for ${targetEmp ? targetEmp.name : 'this employee'}?\n\nAllocated: WO: ${allocWO}, SL: ${allocSL}, CL: ${allocCL}, PL: ${allocPL}`,
-      confirmText: 'Save Allocations',
-      type: 'info',
-      onConfirm: async () => {
-        closeConfirm();
-        setAllocSaving(true);
-        try {
-          const monthStr = String(currentMonth + 1).padStart(2, '0');
-          const data = {
-            employee_id: allocTarget,
-            year: currentYear,
-            month: monthStr,
-            wo: Number(allocWO),
-            sl: Number(allocSL),
-            cl: Number(allocCL),
-            pl: Number(allocPL)
-          };
-          await api.attendance.saveLeaveAllocation(data);
-          alert('Leave allocations successfully saved!');
-          setShowAllocPanel(false);
-        } catch (err) {
-          alert(err.message || 'Failed to save leave allocation.');
-        } finally {
-          setAllocSaving(false);
-        }
-      },
-      onCancel: closeConfirm
-    });
+
+  const fetchEmployeeList = async () => {
+    try {
+      const data = await api.employees.list(true);
+      const activeEmps = (data || []).filter(e => e.email && e.email.toLowerCase() !== user?.email?.toLowerCase());
+      setEmployeeList(activeEmps);
+    } catch (err) {
+      console.error('Failed to load employees for broadcast:', err);
+    }
+  };
+
+  const handleSaveLeaveAllocation = async () => {
+    setAllocSaving(true);
+    try {
+      const targetEmp = employees.find(e => e.id === allocTarget);
+      const data = {
+        year: currentYear,
+        month: String(currentMonth + 1).padStart(2, '0'),
+        target: allocTarget,
+        wo: Number(allocWO),
+        sl: Number(allocSL),
+        cl: Number(allocCL),
+        pl: Number(allocPL)
+      };
+      await api.attendance.saveLeaveAllocation(data);
+      setShowAllocPanel(false);
+      if (isAdmin) fetchAdminData();
+    } catch (err) {
+      console.error('Failed to save leave allocation:', err);
+    } finally {
+      setAllocSaving(false);
+    }
   };
 
   const handleLockMonth = () => {
     const monthStr = String(currentMonth + 1).padStart(2, '0');
     const monthName = new Date(currentYear, currentMonth).toLocaleString('default', { month: 'long', year: 'numeric' });
+
     setConfirmConfig({
       isOpen: true,
-      title: 'Lock Month Attendance',
-      message: `Are you sure you want to lock attendance logs for ${monthName}?\n\nThis will freeze attendance edits for employees and sync records to the Payroll Engine.`,
-      confirmText: 'Yes, Lock Month',
+      title: `Lock Attendance - ${monthName}`,
+      message: `Locking attendance will finalize all records for ${monthName}. Unmarked days will be automatically tallied as Present, and marked leaves will deduct from HR allocations. Proceed?`,
+      confirmText: 'Lock Attendance Month',
+      cancelText: 'Cancel',
       type: 'danger',
       onConfirm: async () => {
         closeConfirm();
         setLockLoading(true);
         try {
           const res = await api.attendance.lockMonth(currentYear, monthStr);
-          alert(res.message || 'Month attendance successfully locked and synced!');
-          fetchLockStatus();
+          setLockStatus({ locked: true });
+          if (isAdmin) fetchAdminData();
         } catch (err) {
-          alert(err.message || 'Failed to lock month attendance.');
+          setError(err.message || 'Failed to lock attendance month.');
         } finally {
           setLockLoading(false);
         }
@@ -174,21 +188,23 @@ export default function Attendance({ activeTenant, user }) {
   const handleUnlockMonth = () => {
     const monthStr = String(currentMonth + 1).padStart(2, '0');
     const monthName = new Date(currentYear, currentMonth).toLocaleString('default', { month: 'long', year: 'numeric' });
+
     setConfirmConfig({
       isOpen: true,
-      title: 'Unlock Month Attendance',
-      message: `Are you sure you want to unlock attendance logs for ${monthName}?\n\nThis will re-enable attendance edits for all employees.`,
-      confirmText: 'Yes, Unlock Month',
+      title: `Unlock Attendance - ${monthName}`,
+      message: `Unlocking will allow employees and HR to modify attendance records for ${monthName}. Proceed?`,
+      confirmText: 'Unlock Month',
+      cancelText: 'Cancel',
       type: 'warning',
       onConfirm: async () => {
         closeConfirm();
         setLockLoading(true);
         try {
           const res = await api.attendance.unlockMonth(currentYear, monthStr);
-          alert(res.message || 'Month attendance successfully unlocked!');
-          fetchLockStatus();
+          setLockStatus({ locked: false });
+          if (isAdmin) fetchAdminData();
         } catch (err) {
-          alert(err.message || 'Failed to unlock month attendance.');
+          setError(err.message || 'Failed to unlock attendance month.');
         } finally {
           setLockLoading(false);
         }
@@ -197,9 +213,9 @@ export default function Attendance({ activeTenant, user }) {
     });
   };
 
-
   useEffect(() => {
     fetchLockStatus();
+    fetchEmployeeList();
     if (isAdmin) {
       fetchAdminData();
     } else {
@@ -220,7 +236,7 @@ export default function Attendance({ activeTenant, user }) {
       setMarkedToday(res.selections || []);
     } catch (err) {
       console.error(err);
-      setError('Failed to fetch today\'s attendance.');
+      setError("Failed to fetch today's attendance.");
     } finally {
       setLoading(false);
     }
@@ -239,98 +255,6 @@ export default function Attendance({ activeTenant, user }) {
     } finally {
       setLoading(false);
     }
-  };
-
-  const getTimeWindowInfo = () => {
-    if (isAdmin) return { isWindowValid: true, reason: 'Admin Access Override', currentTimeStr: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true }) };
-    if (user?.allow_late_attendance_marking) return { isWindowValid: true, reason: 'Late Marking Permitted by HR Admin', currentTimeStr: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true }) };
-
-    const now = new Date();
-    const hours = now.getHours();
-    const minutes = now.getMinutes();
-    const currentMins = hours * 60 + minutes;
-
-    const startMins = 10 * 60;      // 10:00 AM (600 mins)
-    const endMins = 10 * 60 + 30;   // 10:30 AM (630 mins)
-
-    const currentTimeStr = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true });
-
-    if (currentMins < startMins) {
-      return {
-        isWindowValid: false,
-        currentTimeStr,
-        reason: `Attendance marking opens at 10:00 AM. Current time is ${currentTimeStr}.`
-      };
-    }
-
-    if (currentMins > endMins) {
-      return {
-        isWindowValid: false,
-        currentTimeStr,
-        reason: `Attendance window (10:00 AM – 10:30 AM) is closed. Current time is ${currentTimeStr}.`
-      };
-    }
-
-    return { isWindowValid: true, currentTimeStr, reason: 'Attendance Window Open (10:00 AM – 10:30 AM)' };
-  };
-
-  const handleMarkCheckbox = (selection) => {
-    if (markedToday.includes(selection)) return;
-
-    if (lockStatus?.locked === true) {
-      setConfirmConfig({
-        isOpen: true,
-        title: 'Attendance Month Locked',
-        message: 'Attendance logs for this month have been locked and finalized by HR Admin. Selections cannot be modified.',
-        confirmText: 'Understand',
-        cancelText: 'Close',
-        type: 'danger',
-        onConfirm: closeConfirm,
-        onCancel: closeConfirm
-      });
-      return;
-    }
-
-    const windowInfo = getTimeWindowInfo();
-
-    if (!windowInfo.isWindowValid) {
-      setConfirmConfig({
-        isOpen: true,
-        title: 'Attendance Window Closed',
-        message: `Attendance for employees can ONLY be marked between 10:00 AM and 10:30 AM.\n\nCurrent Time: ${windowInfo.currentTimeStr}\nStatus: ${windowInfo.reason}\n\nNo attendance can be marked after 10:30 AM unless permitted by HR Admin.`,
-        confirmText: 'Understand',
-        cancelText: 'Close',
-        type: 'danger',
-        onConfirm: closeConfirm,
-        onCancel: closeConfirm
-      });
-      return;
-    }
-
-    setConfirmConfig({
-      isOpen: true,
-      title: 'Confirm Attendance Status Mark',
-      message: `Are you sure you want to mark today's attendance status as "${selection}"?\n\nTime: ${windowInfo.currentTimeStr}\n\nNote: Selections are saved immediately and cannot be deselected by employee.`,
-      confirmText: `Confirm ${selection}`,
-      cancelText: 'Cancel',
-      type: 'success',
-      onConfirm: async () => {
-        closeConfirm();
-        setMarkedToday(prev => [...prev, selection]);
-        setError('');
-        
-        try {
-          const res = await api.attendance.mark(selection);
-          setMarkedToday(res.selections || []);
-          fetchMyMonthData(); // Snappily update calendar view too!
-        } catch (err) {
-          const errMsg = err.message || 'Failed to mark attendance.';
-          setError(errMsg);
-          setMarkedToday(prev => prev.filter(x => x !== selection));
-        }
-      },
-      onCancel: closeConfirm
-    });
   };
 
   const handlePrevMonth = () => {
@@ -358,109 +282,121 @@ export default function Attendance({ activeTenant, user }) {
     let sickLeaveCount = 0;
     let casualLeaveCount = 0;
     let privilegedLeaveCount = 0;
-    let siteVisitCount = 0;
-    let extendedWorkCount = 0;
-    
+
     empRecords.forEach(r => {
-      const selections = Object.keys(r.selections || {});
-      if (selections.includes('Present')) presentCount++;
-      if (selections.includes('Weekly Off')) weeklyOffCount++;
-      if (selections.includes('Sick Leave')) sickLeaveCount++;
-      if (selections.includes('Casual Leave')) casualLeaveCount++;
-      if (selections.includes('Privileged Leave')) privilegedLeaveCount++;
-      if (selections.includes('Site Visit') || selections.includes('Back From Site Visit')) siteVisitCount++;
-      if (selections.includes('Extended Work')) extendedWorkCount++;
+      const sels = Object.keys(r.selections || {});
+      if (sels.includes('Present')) presentCount++;
+      if (sels.includes('Weekly Off')) weeklyOffCount++;
+      if (sels.includes('Sick Leave')) sickLeaveCount++;
+      if (sels.includes('Casual Leave')) casualLeaveCount++;
+      if (sels.includes('Privileged Leave')) privilegedLeaveCount++;
     });
-    
-    return { presentCount, weeklyOffCount, sickLeaveCount, casualLeaveCount, privilegedLeaveCount, siteVisitCount, extendedWorkCount };
+
+    return { presentCount, weeklyOffCount, sickLeaveCount, casualLeaveCount, privilegedLeaveCount };
   };
 
-  const renderCountCell = (empId, statusKey) => {
-    const empRecords = adminRecords.filter(r => r.employee_id === empId);
-    let matchedLogs = [];
-    empRecords.forEach(r => {
-      const selections = r.selections || {};
-      if (statusKey === 'Site Visit') {
-        if (selections['Site Visit']) matchedLogs.push(true);
-        if (selections['Back From Site Visit']) matchedLogs.push(true);
-      } else {
-        if (selections[statusKey]) matchedLogs.push(true);
-      }
-    });
-    const count = matchedLogs.length;
-    let color = '#10b981';
-    if (statusKey === 'Weekly Off') color = '#64748b';
-    if (statusKey === 'Sick Leave') color = '#ef4444';
-    if (statusKey === 'Casual Leave') color = '#fbbf24';
-    if (statusKey === 'Privileged Leave') color = '#a855f7';
-    if (statusKey === 'Site Visit') color = '#3b82f6';
-    if (statusKey === 'Extended Work') color = '#0d9488';
-    return (
-      <span style={{ color, fontWeight: '800', fontSize: '16px' }}>{count}</span>
+  // Helper functions for employee broadcast selection
+  const departments = ['All', ...Array.from(new Set(employeeList.map(e => e.department || 'General')))];
+
+  const filteredEmployees = employeeList.filter(emp => {
+    if (selectedDeptFilter !== 'All' && emp.department !== selectedDeptFilter) return false;
+    if (recipientSearchQuery) {
+      const q = recipientSearchQuery.toLowerCase();
+      const matchName = emp.name?.toLowerCase().includes(q);
+      const matchEmail = emp.email?.toLowerCase().includes(q);
+      const matchDept = emp.department?.toLowerCase().includes(q);
+      if (!matchName && !matchEmail && !matchDept) return false;
+    }
+    return true;
+  });
+
+  const toggleRecipient = (email) => {
+    setSelectedRecipients(prev => 
+      prev.includes(email) ? prev.filter(e => e !== email) : [...prev, email]
     );
   };
 
-  const renderTimeLogsCell = (empId, statusKey) => {
-    const empRecords = adminRecords.filter(r => r.employee_id === empId);
-    let matchedLogs = [];
-    empRecords.forEach(r => {
-      const selections = r.selections || {};
-      const day = r.date.split('-')[2];
-      if (statusKey === 'Site Visit') {
-        if (selections['Site Visit']) matchedLogs.push({ day, time: selections['Site Visit'], label: 'Out' });
-        if (selections['Back From Site Visit']) matchedLogs.push({ day, time: selections['Back From Site Visit'], label: 'In' });
-      } else {
-        if (selections[statusKey]) matchedLogs.push({ day, time: selections[statusKey] });
-      }
-    });
-    if (matchedLogs.length === 0) return <span style={{ color: 'var(--text-muted)', fontSize: '11px' }}>—</span>;
-    return (
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-        {matchedLogs.map((log, i) => (
-          <span key={i} style={{ fontSize: '10px', color: '#94a3b8', whiteSpace: 'nowrap' }}>
-            {log.label ? `Day ${log.day} ${log.label}: ${log.time}` : `Day ${log.day}: ${log.time}`}
-          </span>
-        ))}
-      </div>
-    );
+  const selectAllFilteredRecipients = () => {
+    const emailsToAdd = filteredEmployees.map(e => e.email);
+    setSelectedRecipients(prev => Array.from(new Set([...prev, ...emailsToAdd])));
   };
 
-  const handleExport = async (format) => {
+  const clearAllRecipients = () => {
+    setSelectedRecipients([]);
+  };
+
+  const handleConfirmAndSubmitMarking = async () => {
+    closeConfirm();
+    setSubmittingMarking(true);
+    setError('');
+    setMarkingSuccessMsg('');
     try {
-      setLoading(true);
-      const token = localStorage.getItem('hr_token');
-      const monthStr = String(currentMonth + 1).padStart(2, '0');
-      const base = 'https://hrms-backend-gamma.vercel.app';
-      const url = `${base}/api/attendance/admin/export?year=${currentYear}&month=${monthStr}&format=${format}`;
+      const payload = {
+        status: statusSelection,
+        leave_category: statusSelection === 'Leave' ? leaveCategory : '',
+        reason: absenceReason,
+        handover_person: handoverPerson,
+        broadcast_all: broadcastMode === 'all',
+        broadcast_recipients: broadcastMode === 'selective' ? selectedRecipients : []
+      };
+
+      const res = await api.attendance.mark(payload);
+      setMarkedToday(res.selections || []);
       
-      const res = await fetch(url, {
-        headers: token ? { 'Authorization': `Bearer ${token}` } : {}
-      });
-
-      if (!res.ok) {
-        throw new Error(`Export failed (${res.status})`);
+      const displayStatus = statusSelection === 'Leave' ? leaveCategory : statusSelection;
+      let msg = `Successfully marked your status as "${displayStatus}" for today!`;
+      if (res.broadcast_sent) {
+        msg += ` Broadcast email sent to ${res.recipients_count} recipient(s) on a single thread.`;
       }
-
-      const blob = await res.blob();
-      const blobUrl = URL.createObjectURL(blob);
-      const extension = format === 'xls' ? 'xlsx' : format === 'word' ? 'docx' : format;
-      const fileName = `attendance_masterlist_${currentYear}_${monthStr}.${extension}`;
-
-      const link = document.createElement('a');
-      link.href = blobUrl;
-      link.download = fileName;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      setTimeout(() => URL.revokeObjectURL(blobUrl), 10000);
+      setMarkingSuccessMsg(msg);
+      fetchMyMonthData();
+      fetchLeaveSummary();
     } catch (err) {
-      setError(`Failed to export attendance data: ${err.message}`);
+      console.error(err);
+      setError(err.message || 'Failed to submit attendance marking.');
     } finally {
-      setLoading(false);
+      setSubmittingMarking(false);
     }
   };
 
-  // Render Employee Attendance Checkbox View
+  const triggerMarkConfirmation = () => {
+    if (lockStatus?.locked === true) {
+      setConfirmConfig({
+        isOpen: true,
+        title: 'Attendance Month Locked',
+        message: 'Attendance logs for this month have been locked and finalized by HR Admin. Selections cannot be modified.',
+        confirmText: 'Understand',
+        cancelText: 'Close',
+        type: 'danger',
+        onConfirm: closeConfirm,
+        onCancel: closeConfirm
+      });
+      return;
+    }
+
+    if (broadcastMode === 'selective' && selectedRecipients.length === 0) {
+      setError('Please select at least one employee recipient for your selective broadcast list, or switch to "Select All Employees".');
+      return;
+    }
+
+    const displayStatus = statusSelection === 'Leave' ? leaveCategory : statusSelection;
+    const recipientCount = broadcastMode === 'all' ? employeeList.length : selectedRecipients.length;
+
+    setConfirmConfig({
+      isOpen: true,
+      title: 'Confirm Attendance Marking & Email Broadcast',
+      message: `Mark your status for today as "${displayStatus}" and broadcast announcement email to ${recipientCount} recipient(s)?
+
+Note: All recipients will be included on a single email thread.`,
+      confirmText: `Confirm & Send Broadcast`,
+      cancelText: 'Cancel',
+      type: 'info',
+      onConfirm: handleConfirmAndSubmitMarking,
+      onCancel: closeConfirm
+    });
+  };
+
+  // Render Rebuilt Employee Attendance View
   const renderEmployeeView = () => {
     const todayStr = new Date().toLocaleDateString('en-US', {
       weekday: 'long',
@@ -479,126 +415,360 @@ export default function Attendance({ activeTenant, user }) {
     }
 
     const monthLabel = new Date(currentYear, currentMonth).toLocaleString('default', { month: 'long', year: 'numeric' });
-
     const isLocked = lockStatus?.locked === true;
-    const windowInfo = getTimeWindowInfo();
 
     return (
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 340px', gap: '30px', maxWidth: '1000px', margin: '0 auto', alignItems: 'start' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 360px', gap: '30px', maxWidth: '1050px', margin: '0 auto', alignItems: 'start' }}>
         
-        {/* Left Column: Today Check-in Panel */}
+        {/* Left Column: Rebuilt Attendance & Broadcast Marking Form */}
         <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-glass)', borderRadius: '16px', padding: '25px', boxShadow: '0 8px 32px rgba(0,0,0,0.2)' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '15px' }}>
-            <Clock size={28} style={{ color: '#10b981' }} />
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '20px', borderBottom: '1px solid var(--border-glass)', paddingBottom: '15px' }}>
+            <div style={{ background: 'rgba(59, 130, 246, 0.1)', padding: '10px', borderRadius: '12px', color: '#3b82f6' }}>
+              <Clock size={24} />
+            </div>
             <div>
-              <h2 style={{ fontSize: '22px', fontWeight: 'bold', margin: 0 }}>Daily Attendance Panel</h2>
+              <h2 style={{ fontSize: '20px', fontWeight: 'bold', margin: 0, color: 'var(--text-primary)' }}>Daily Attendance & Leave Broadcast</h2>
               <p style={{ fontSize: '13px', color: '#94a3b8', margin: '2px 0 0 0' }}>{todayStr}</p>
             </div>
           </div>
 
-          {/* Time Window Notice Banner */}
-          {!isAdmin && (
-            <div style={{
-              background: windowInfo.isWindowValid ? 'rgba(16, 185, 129, 0.08)' : 'rgba(239, 68, 68, 0.08)',
-              border: windowInfo.isWindowValid ? '1px solid rgba(16, 185, 129, 0.25)' : '1px solid rgba(239, 68, 68, 0.25)',
-              padding: '14px',
-              borderRadius: '12px',
-              marginBottom: '15px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              gap: '10px'
-            }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <Clock size={20} style={{ color: windowInfo.isWindowValid ? '#10b981' : '#ef4444' }} />
-                <div>
-                  <div style={{ fontSize: '13px', fontWeight: 'bold', color: windowInfo.isWindowValid ? '#10b981' : '#ef4444' }}>
-                    Attendance Window: 10:00 AM – 10:30 AM
-                  </div>
-                  <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '2px' }}>
-                    {windowInfo.reason}
-                  </div>
-                </div>
-              </div>
-              <span style={{
-                background: windowInfo.isWindowValid ? '#10b981' : '#ef4444',
-                color: '#fff',
-                padding: '4px 10px',
-                borderRadius: '20px',
-                fontSize: '11px',
-                fontWeight: '800',
-                letterSpacing: '0.5px'
-              }}>
-                {windowInfo.isWindowValid ? 'OPEN' : 'CLOSED'}
-              </span>
-            </div>
-          )}
-
           {isLocked && (
-            <div style={{ background: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.2)', padding: '12px', borderRadius: '8px', marginBottom: '15px', color: '#ef4444', fontSize: '13px', fontWeight: '500', display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <ShieldAlert size={16} />
+            <div style={{ background: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.2)', padding: '14px', borderRadius: '10px', marginBottom: '20px', color: '#ef4444', fontSize: '13px', fontWeight: '500', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <ShieldAlert size={18} />
               <span>Attendance portal is locked for this month by HR Admin. Selections cannot be modified until unlocked.</span>
             </div>
           )}
 
           {isHoliday && (
-            <div style={{ background: 'rgba(245, 158, 11, 0.1)', border: '1px solid rgba(245, 158, 11, 0.2)', padding: '12px', borderRadius: '8px', marginBottom: '15px', color: '#f59e0b', fontSize: '13px', fontWeight: '500' }}>
-              ℹ️ Today is a pre-decided company holiday. Any check-ins submitted will be recorded as active duty override.
+            <div style={{ background: 'rgba(245, 158, 11, 0.1)', border: '1px solid rgba(245, 158, 11, 0.2)', padding: '12px', borderRadius: '10px', marginBottom: '20px', color: '#f59e0b', fontSize: '13px', fontWeight: '500' }}>
+              ℹ️ Today is a pre-decided company holiday. Any marking submitted will be recorded as active duty override.
             </div>
           )}
 
           {error && (
-            <div style={{ background: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.2)', padding: '12px', borderRadius: '8px', marginBottom: '15px', color: '#ef4444', fontSize: '13px', fontWeight: '500' }}>
+            <div style={{ background: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.2)', padding: '12px', borderRadius: '10px', marginBottom: '20px', color: '#ef4444', fontSize: '13px', fontWeight: '500' }}>
               {error}
             </div>
           )}
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginTop: '20px' }}>
-            {STATUS_OPTIONS.map((opt) => {
-              const isChecked = markedToday.includes(opt);
-              const isDisabled = isChecked || loading || isLocked || !windowInfo.isWindowValid;
-              return (
-                <div 
-                  key={opt} 
-                  onClick={() => {
-                    if (!isChecked && !loading) {
-                      handleMarkCheckbox(opt);
-                    }
-                  }}
-                  style={{ 
-                    display: 'flex', 
-                    alignItems: 'center', 
-                    justifyContent: 'space-between',
-                    padding: '16px', 
-                    background: isChecked ? 'rgba(16, 185, 129, 0.08)' : 'rgba(255, 255, 255, 0.01)', 
-                    border: isChecked ? '1px solid #10b981' : '1px solid var(--border-glass)', 
-                    borderRadius: '12px',
-                    cursor: isChecked ? 'default' : 'pointer',
-                    transition: 'all 0.2s ease',
-                    opacity: isChecked ? 0.8 : isDisabled ? 0.6 : 1
+          {markingSuccessMsg && (
+            <div style={{ background: 'rgba(16, 185, 129, 0.1)', border: '1px solid rgba(16, 185, 129, 0.25)', padding: '14px', borderRadius: '10px', marginBottom: '20px', color: '#10b981', fontSize: '13px', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <CheckCircle size={18} />
+              <span>{markingSuccessMsg}</span>
+            </div>
+          )}
+
+          {/* Step 1: Select Attendance / Leave Status */}
+          <div style={{ marginBottom: '22px' }}>
+            <label style={{ display: 'block', fontSize: '13px', fontWeight: '700', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '10px' }}>
+              1. Mark Your Today's Status
+            </label>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px' }}>
+              {[
+                { id: 'Absent', label: 'Absent', color: '#ef4444', bg: 'rgba(239, 68, 68, 0.08)' },
+                { id: 'Weekly Off', label: 'Weekly Off', color: '#64748b', bg: 'rgba(100, 116, 139, 0.08)' },
+                { id: 'Leave', label: 'Leave', color: '#3b82f6', bg: 'rgba(59, 130, 246, 0.08)' }
+              ].map(opt => {
+                const isSelected = statusSelection === opt.id;
+                return (
+                  <button
+                    key={opt.id}
+                    type="button"
+                    onClick={() => setStatusSelection(opt.id)}
+                    disabled={isLocked || submittingMarking}
+                    style={{
+                      padding: '14px 10px',
+                      borderRadius: '10px',
+                      border: isSelected ? `2px solid ${opt.color}` : '1px solid var(--border-glass)',
+                      background: isSelected ? opt.bg : 'rgba(255,255,255,0.01)',
+                      color: isSelected ? opt.color : 'var(--text-primary)',
+                      fontWeight: '700',
+                      fontSize: '14px',
+                      cursor: 'pointer',
+                      transition: 'all 0.2s ease',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '8px'
+                    }}
+                  >
+                    {isSelected && <Check size={16} />}
+                    {opt.label}
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Sub-dropdown for Leave Category */}
+            {statusSelection === 'Leave' && (
+              <div style={{ marginTop: '12px', background: 'rgba(59, 130, 246, 0.04)', padding: '14px', borderRadius: '10px', border: '1px solid rgba(59, 130, 246, 0.2)' }}>
+                <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: '#3b82f6', marginBottom: '6px' }}>
+                  Select Admin Allocated Leave Category:
+                </label>
+                <select
+                  value={leaveCategory}
+                  onChange={(e) => setLeaveCategory(e.target.value)}
+                  disabled={isLocked || submittingMarking}
+                  style={{
+                    width: '100%',
+                    padding: '10px 12px',
+                    borderRadius: '8px',
+                    border: '1px solid var(--border-glass)',
+                    background: 'var(--bg-card, #1e293b)',
+                    color: '#fff',
+                    fontSize: '14px',
+                    outline: 'none'
                   }}
                 >
-                  <span style={{ fontSize: '15px', fontWeight: '600', color: isChecked ? '#10b981' : 'var(--text-primary)' }}>{opt}</span>
-                  <input 
-                    type="checkbox" 
-                    checked={isChecked}
-                    readOnly
-                    style={{ 
-                      width: '20px', 
-                      height: '20px', 
-                      pointerEvents: 'none',
-                      accentColor: '#10b981'
-                    }}
-                  />
-                </div>
-              );
-            })}
+                  <option value="Casual Leave">Casual Leave (CL)</option>
+                  <option value="Sick Leave">Sick Leave (SL)</option>
+                  <option value="Privileged Leave">Privileged Leave (PL)</option>
+                </select>
+              </div>
+            )}
           </div>
 
-          <div style={{ marginTop: '25px', display: 'flex', gap: '8px', alignItems: 'center', background: 'rgba(255,255,255,0.01)', padding: '12px', borderRadius: '8px', fontSize: '12px', color: '#94a3b8' }}>
-            <AlertTriangle size={14} style={{ color: '#fbbf24' }} />
-            <span>Lock-in rule: selections are saved immediately and cannot be deselected by employee.</span>
+          {/* Step 2: Optional Details */}
+          <div style={{ marginBottom: '22px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+            <div>
+              <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: '#94a3b8', marginBottom: '6px' }}>
+                Reason (Optional)
+              </label>
+              <input
+                type="text"
+                placeholder="e.g. Personal emergency..."
+                value={absenceReason}
+                onChange={(e) => setAbsenceReason(e.target.value)}
+                disabled={isLocked || submittingMarking}
+                style={{
+                  width: '100%',
+                  padding: '10px 12px',
+                  borderRadius: '8px',
+                  border: '1px solid var(--border-glass)',
+                  background: 'rgba(255,255,255,0.01)',
+                  color: 'var(--text-primary)',
+                  fontSize: '13px',
+                  outline: 'none'
+                }}
+              />
+            </div>
+            <div>
+              <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: '#94a3b8', marginBottom: '6px' }}>
+                Handover / Contact (Optional)
+              </label>
+              <input
+                type="text"
+                placeholder="e.g. John Doe for urgent tasks"
+                value={handoverPerson}
+                onChange={(e) => setHandoverPerson(e.target.value)}
+                disabled={isLocked || submittingMarking}
+                style={{
+                  width: '100%',
+                  padding: '10px 12px',
+                  borderRadius: '8px',
+                  border: '1px solid var(--border-glass)',
+                  background: 'rgba(255,255,255,0.01)',
+                  color: 'var(--text-primary)',
+                  fontSize: '13px',
+                  outline: 'none'
+                }}
+              />
+            </div>
           </div>
+
+          {/* Step 3: Broadcast Audience Selection */}
+          <div style={{ marginBottom: '25px', borderTop: '1px solid var(--border-glass)', paddingTop: '18px' }}>
+            <label style={{ display: 'block', fontSize: '13px', fontWeight: '700', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '12px' }}>
+              2. Email Broadcast Audience
+            </label>
+            
+            <div style={{ display: 'flex', gap: '12px', marginBottom: '15px' }}>
+              <button
+                type="button"
+                onClick={() => setBroadcastMode('all')}
+                style={{
+                  flex: 1,
+                  padding: '10px',
+                  borderRadius: '8px',
+                  border: broadcastMode === 'all' ? '2px solid #10b981' : '1px solid var(--border-glass)',
+                  background: broadcastMode === 'all' ? 'rgba(16, 185, 129, 0.08)' : 'rgba(255,255,255,0.01)',
+                  color: broadcastMode === 'all' ? '#10b981' : 'var(--text-primary)',
+                  fontWeight: '600',
+                  fontSize: '13px',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '6px'
+                }}
+              >
+                <Users size={16} />
+                Select All Employees ({employeeList.length})
+              </button>
+              <button
+                type="button"
+                onClick={() => setBroadcastMode('selective')}
+                style={{
+                  flex: 1,
+                  padding: '10px',
+                  borderRadius: '8px',
+                  border: broadcastMode === 'selective' ? '2px solid #3b82f6' : '1px solid var(--border-glass)',
+                  background: broadcastMode === 'selective' ? 'rgba(59, 130, 246, 0.08)' : 'rgba(255,255,255,0.01)',
+                  color: broadcastMode === 'selective' ? '#3b82f6' : 'var(--text-primary)',
+                  fontWeight: '600',
+                  fontSize: '13px',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '6px'
+                }}
+              >
+                <Filter size={16} />
+                Selective Select ({selectedRecipients.length} Selected)
+              </button>
+            </div>
+
+            {/* Selective Broadcast Selector */}
+            {broadcastMode === 'selective' && (
+              <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-glass)', borderRadius: '12px', padding: '14px' }}>
+                {/* Department Filter Tags */}
+                <div style={{ marginBottom: '10px' }}>
+                  <div style={{ fontSize: '11px', fontWeight: '700', color: '#94a3b8', marginBottom: '6px', textTransform: 'uppercase' }}>
+                    Department Quick Filters:
+                  </div>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                    {departments.map(dept => {
+                      const isSel = selectedDeptFilter === dept;
+                      return (
+                        <button
+                          key={dept}
+                          type="button"
+                          onClick={() => setSelectedDeptFilter(dept)}
+                          style={{
+                            padding: '4px 10px',
+                            borderRadius: '16px',
+                            border: isSel ? '1px solid #3b82f6' : '1px solid var(--border-glass)',
+                            background: isSel ? '#3b82f6' : 'rgba(255,255,255,0.02)',
+                            color: '#fff',
+                            fontSize: '11px',
+                            fontWeight: '600',
+                            cursor: 'pointer'
+                          }}
+                        >
+                          {dept}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Search Bar & Actions */}
+                <div style={{ display: 'flex', gap: '8px', marginBottom: '10px', alignItems: 'center' }}>
+                  <div style={{ position: 'relative', flex: 1 }}>
+                    <Search size={14} style={{ position: 'absolute', left: '10px', top: '10px', color: '#64748b' }} />
+                    <input
+                      type="text"
+                      placeholder="Search colleagues..."
+                      value={recipientSearchQuery}
+                      onChange={(e) => setRecipientSearchQuery(e.target.value)}
+                      style={{
+                        width: '100%',
+                        padding: '8px 8px 8px 30px',
+                        borderRadius: '6px',
+                        border: '1px solid var(--border-glass)',
+                        background: 'rgba(0,0,0,0.2)',
+                        color: '#fff',
+                        fontSize: '12px',
+                        outline: 'none'
+                      }}
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    onClick={selectAllFilteredRecipients}
+                    style={{ padding: '6px 10px', borderRadius: '6px', border: '1px solid #10b981', background: 'rgba(16, 185, 129, 0.1)', color: '#10b981', fontSize: '11px', fontWeight: '600', cursor: 'pointer', whiteSpace: 'nowrap' }}
+                  >
+                    Select All
+                  </button>
+                  <button
+                    type="button"
+                    onClick={clearAllRecipients}
+                    style={{ padding: '6px 10px', borderRadius: '6px', border: '1px solid #ef4444', background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', fontSize: '11px', fontWeight: '600', cursor: 'pointer', whiteSpace: 'nowrap' }}
+                  >
+                    Clear
+                  </button>
+                </div>
+
+                {/* Recipient Checklist */}
+                <div style={{ maxHeight: '180px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '6px', paddingRight: '4px' }}>
+                  {filteredEmployees.length === 0 ? (
+                    <div style={{ fontSize: '12px', color: '#64748b', textAlign: 'center', padding: '12px' }}>
+                      No employees match your search filter.
+                    </div>
+                  ) : (
+                    filteredEmployees.map(emp => {
+                      const isChecked = selectedRecipients.includes(emp.email);
+                      return (
+                        <div
+                          key={emp.email}
+                          onClick={() => toggleRecipient(emp.email)}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            padding: '8px 10px',
+                            borderRadius: '6px',
+                            background: isChecked ? 'rgba(59, 130, 246, 0.1)' : 'rgba(255,255,255,0.01)',
+                            border: isChecked ? '1px solid rgba(59, 130, 246, 0.3)' : '1px solid transparent',
+                            cursor: 'pointer'
+                          }}
+                        >
+                          <div>
+                            <span style={{ fontSize: '13px', fontWeight: '600', color: 'var(--text-primary)', display: 'block' }}>{emp.name}</span>
+                            <span style={{ fontSize: '11px', color: '#64748b' }}>{emp.department || 'General'} &bull; {emp.email}</span>
+                          </div>
+                          <input
+                            type="checkbox"
+                            checked={isChecked}
+                            onChange={() => {}}
+                            style={{ accentColor: '#3b82f6', width: '16px', height: '16px' }}
+                          />
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Confirm & Submit Button */}
+          <button
+            type="button"
+            onClick={triggerMarkConfirmation}
+            disabled={isLocked || submittingMarking}
+            style={{
+              width: '100%',
+              padding: '14px',
+              borderRadius: '10px',
+              border: 'none',
+              background: isLocked ? '#64748b' : 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+              color: '#fff',
+              fontWeight: '700',
+              fontSize: '15px',
+              cursor: isLocked ? 'not-allowed' : 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '8px',
+              boxShadow: isLocked ? 'none' : '0 4px 14px rgba(16, 185, 129, 0.4)',
+              opacity: submittingMarking ? 0.7 : 1
+            }}
+          >
+            <Send size={18} />
+            {submittingMarking ? 'Submitting & Broadcasting...' : 'Confirm Attendance & Broadcast Email'}
+          </button>
         </div>
 
         {/* Right Column: Employee Month Calendar */}
@@ -650,7 +820,8 @@ export default function Attendance({ activeTenant, user }) {
               return (
                 <div 
                   key={dStr} 
-                  title={`${dStr}\n${titleText}`}
+                  title={`${dStr}
+${titleText}`}
                   style={{
                     aspectRatio: '1',
                     borderRadius: '6px',
@@ -677,7 +848,7 @@ export default function Attendance({ activeTenant, user }) {
 
           <div style={{ marginTop: '15px', display: 'flex', flexDirection: 'column', gap: '8px', borderTop: '1px solid var(--border-glass)', paddingTop: '12px' }}>
             <span style={{ fontSize: '11px', color: '#94a3b8', display: 'flex', alignItems: 'center', gap: '5px' }}>
-              <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#10b981', display: 'inline-block' }} /> Checked In
+              <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#10b981', display: 'inline-block' }} /> Checked In / Leave Marked
             </span>
             <span style={{ fontSize: '11px', color: '#94a3b8', display: 'flex', alignItems: 'center', gap: '5px' }}>
               <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#ef4444', display: 'inline-block' }} /> Holiday
@@ -749,446 +920,185 @@ export default function Attendance({ activeTenant, user }) {
     }
 
     const monthLabel = new Date(currentYear, currentMonth).toLocaleString('default', { month: 'long', year: 'numeric' });
-    
-    // Summary of selected date
-    const selectedDateRecords = adminRecords.filter(r => r.date === selectedDate);
-    const holidayText = isPredecidedHoliday(selectedDate) ? 'Pre-decided Holiday' : 'Active Tracking Day';
 
     return (
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 320px', gap: '15px' }}>
-        {/* Left Column: Calendar & Monthly Summary */}
-        <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-glass)', borderRadius: '16px', padding: '15px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <Calendar size={20} style={{ color: '#10b981' }} />
-              <h2 style={{ fontSize: '18px', fontWeight: 'bold', margin: 0 }}>HR Attendance Controller</h2>
-            </div>
-            
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-              <button className="back-btn" onClick={handlePrevMonth} style={{ padding: '4px 8px', margin: 0 }}><ChevronLeft size={14} /></button>
-              <span style={{ fontSize: '14px', fontWeight: 'bold' }}>{monthLabel}</span>
-              <button className="back-btn" onClick={handleNextMonth} style={{ padding: '4px 8px', margin: 0 }}><ChevronRight size={14} /></button>
-            </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+        
+        {/* Admin Header & Stats */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(255,255,255,0.02)', padding: '20px', borderRadius: '16px', border: '1px solid var(--border-glass)' }}>
+          <div>
+            <h2 style={{ fontSize: '20px', fontWeight: 'bold', margin: 0 }}>Attendance Management (Admin)</h2>
+            <p style={{ fontSize: '13px', color: '#94a3b8', margin: '4px 0 0 0' }}>Manage monthly attendance logs, leave allocations, and locking for payroll.</p>
           </div>
 
-          {/* Action Bar: Allocation and Lock controls */}
-          <div style={{ display: 'flex', gap: '10px', marginBottom: '15px', background: 'rgba(255,255,255,0.01)', padding: '10px', borderRadius: '10px', border: '1px solid var(--border-glass)', flexWrap: 'wrap', alignItems: 'center' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
             <button
               onClick={() => setShowAllocPanel(!showAllocPanel)}
               style={{
-                background: showAllocPanel ? '#475569' : '#10b981',
-                color: '#fff',
-                border: 'none',
                 padding: '8px 14px',
-                borderRadius: '6px',
-                fontSize: '12px',
-                cursor: 'pointer',
+                borderRadius: '8px',
+                border: '1px solid #10b981',
+                background: 'rgba(16, 185, 129, 0.1)',
+                color: '#10b981',
+                fontSize: '13px',
                 fontWeight: 'bold',
+                cursor: 'pointer',
                 display: 'flex',
                 alignItems: 'center',
-                gap: '6px',
-                transition: 'all 0.3s ease',
-                boxShadow: '0 4px 12px rgba(16, 185, 129, 0.2)'
+                gap: '6px'
               }}
             >
-              <Leaf size={14} /> {showAllocPanel ? 'Close Allocation' : 'Allocate Leaves'}
+              <Leaf size={16} />
+              {showAllocPanel ? 'Close Leave Allocations' : 'Set Leave Allocations'}
             </button>
 
-            <button
-              onClick={lockStatus.locked ? handleUnlockMonth : handleLockMonth}
-              disabled={lockLoading}
-              title={lockStatus.locked ? "Click to unlock attendance for this month" : "Click to lock attendance for this month"}
-              style={{
-                background: lockStatus.locked ? '#ef4444' : '#10b981',
-                color: '#fff',
-                border: 'none',
-                padding: '6px 12px',
-                borderRadius: '6px',
-                fontSize: '12px',
-                cursor: 'pointer',
-                fontWeight: 'bold',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '6px',
-                opacity: lockLoading ? 0.6 : 1,
-                transition: 'all 0.2s ease',
-                boxShadow: lockStatus.locked ? '0 4px 12px rgba(239, 68, 68, 0.3)' : '0 4px 12px rgba(16, 185, 129, 0.3)'
-              }}
-            >
-              {lockStatus.locked ? (
-                <>
-                  <Unlock size={14} /> Unlock Attendance
-                </>
-              ) : (
-                <>
-                  <Lock size={14} /> Lock Attendance
-                </>
-              )}
-            </button>
-            
-            <button
-              onClick={async () => {
-                setLockLoading(true);
-                try {
-                  const res = await api.attendance.permitLateAttendanceAll();
-                  alert(res.message || 'Late attendance marking permitted for all active employees.');
-                  fetchAdminData();
-                } catch (err) {
-                  alert(err.message || 'Failed to permit late attendance marking.');
-                } finally {
-                  setLockLoading(false);
-                }
-              }}
-              style={{
-                background: '#3b82f6',
-                color: '#fff',
-                border: 'none',
-                padding: '6px 12px',
-                borderRadius: '6px',
-                fontSize: '12px',
-                cursor: 'pointer',
-                fontWeight: 'bold',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '6px',
-                opacity: lockLoading ? 0.6 : 1
-              }}
-            >
-              <Clock size={14} /> Permit All (Late Mark)
-            </button>
-          </div>
+            {lockStatus?.locked ? (
+              <button
+                onClick={handleUnlockMonth}
+                disabled={lockLoading}
+                style={{
+                  padding: '8px 14px',
+                  borderRadius: '8px',
+                  border: '1px solid #ef4444',
+                  background: 'rgba(239, 68, 68, 0.1)',
+                  color: '#ef4444',
+                  fontSize: '13px',
+                  fontWeight: 'bold',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px'
+                }}
+              >
+                <Unlock size={16} />
+                Unlock Attendance Month
+              </button>
+            ) : (
+              <button
+                onClick={handleLockMonth}
+                disabled={lockLoading}
+                style={{
+                  padding: '8px 14px',
+                  borderRadius: '8px',
+                  border: 'none',
+                  background: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)',
+                  color: '#fff',
+                  fontSize: '13px',
+                  fontWeight: 'bold',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  boxShadow: '0 4px 12px rgba(239, 68, 68, 0.3)'
+                }}
+              >
+                <Lock size={16} />
+                Lock Attendance Month
+              </button>
+            )}
 
-          {/* Leave Allocation Form Panel */}
-          {showAllocPanel && (
-            <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border-glass)', borderRadius: '12px', padding: '15px', marginBottom: '15px' }}>
-              <h4 style={{ fontSize: '14px', fontWeight: 'bold', margin: '0 0 12px 0', color: '#10b981' }}>Allocate Leaves ({monthLabel})</h4>
-              
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '12px' }}>
-                <div>
-                  <label style={{ fontSize: '11px', color: '#94a3b8', display: 'block', marginBottom: '4px' }}>Target Employee</label>
-                  <select 
-                    value={allocTarget} 
-                    onChange={(e) => setAllocTarget(e.target.value)}
-                    style={{ width: '100%', background: '#0f172a', border: '1px solid var(--border-glass)', color: '#fff', padding: '6px', borderRadius: '6px', fontSize: '12px' }}
-                  >
-                    <option value="all">All Active Employees</option>
-                    {employees.map(emp => (
-                      <option key={emp.id} value={emp.id}>{emp.name}</option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label style={{ fontSize: '11px', color: '#94a3b8', display: 'block', marginBottom: '4px' }}>Week Off (WO)</label>
-                  <input type="number" min="0" step="0.5" value={allocWO} onChange={(e) => setAllocWO(e.target.value)} style={{ width: '100%', background: '#0f172a', border: '1px solid var(--border-glass)', color: '#fff', padding: '5px 8px', borderRadius: '6px', fontSize: '12px' }} />
-                </div>
-              </div>
-
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px', marginBottom: '15px' }}>
-                <div>
-                  <label style={{ fontSize: '11px', color: '#94a3b8', display: 'block', marginBottom: '4px' }}>Sick Leave (SL)</label>
-                  <input type="number" min="0" step="0.5" value={allocSL} onChange={(e) => setAllocSL(e.target.value)} style={{ width: '100%', background: '#0f172a', border: '1px solid var(--border-glass)', color: '#fff', padding: '5px 8px', borderRadius: '6px', fontSize: '12px' }} />
-                </div>
-                <div>
-                  <label style={{ fontSize: '11px', color: '#94a3b8', display: 'block', marginBottom: '4px' }}>Casual Leave (CL)</label>
-                  <input type="number" min="0" step="0.5" value={allocCL} onChange={(e) => setAllocCL(e.target.value)} style={{ width: '100%', background: '#0f172a', border: '1px solid var(--border-glass)', color: '#fff', padding: '5px 8px', borderRadius: '6px', fontSize: '12px' }} />
-                </div>
-                <div>
-                  <label style={{ fontSize: '11px', color: '#94a3b8', display: 'block', marginBottom: '4px' }}>Privileged Leave (PL)</label>
-                  <input type="number" min="0" step="0.5" value={allocPL} onChange={(e) => setAllocPL(e.target.value)} style={{ width: '100%', background: '#0f172a', border: '1px solid var(--border-glass)', color: '#fff', padding: '5px 8px', borderRadius: '6px', fontSize: '12px' }} />
-                </div>
-              </div>
-
-              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
-                <button onClick={() => setShowAllocPanel(false)} style={{ background: 'transparent', border: '1px solid var(--border-glass)', color: '#fff', padding: '6px 12px', borderRadius: '6px', fontSize: '12px', cursor: 'pointer' }}>Cancel</button>
-                <button onClick={handleSaveLeaveAllocation} disabled={allocSaving} style={{ background: '#10b981', border: 'none', color: '#fff', padding: '6px 12px', borderRadius: '6px', fontSize: '12px', cursor: 'pointer', fontWeight: 'bold' }}>
-                  {allocSaving ? 'Saving...' : 'Save Allocation'}
-                </button>
-              </div>
-            </div>
-          )}
-
-          {error && (
-            <div style={{ background: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.2)', padding: '10px', borderRadius: '8px', marginBottom: '12px', color: '#ef4444', fontSize: '13px', fontWeight: '500' }}>
-              {error}
-            </div>
-          )}
-
-          {/* Calendar Grid View */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '4px', marginBottom: '12px', textAlign: 'center' }}>
-            {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(w => (
-              <span key={w} style={{ fontSize: '11px', fontWeight: 'bold', color: '#64748b', paddingBottom: '3px' }}>{w}</span>
-            ))}
-            
-            {/* Blank padding days for start of month */}
-            {Array.from({ length: new Date(currentYear, currentMonth, 1).getDay() }).map((_, idx) => (
-              <div key={`pad-${idx}`} />
-            ))}
-
-            {monthDates.map(dStr => {
-              const dayNum = new Date(dStr).getDate();
-              const isSelected = dStr === selectedDate;
-              const isHoliday = isPredecidedHoliday(dStr);
-              
-              // Count activities on this day
-              const dayRecs = adminRecords.filter(r => r.date === dStr);
-              const activityCount = dayRecs.reduce((acc, curr) => acc + Object.keys(curr.selections || {}).length, 0);
-
-              return (
-                <div 
-                  key={dStr} 
-                  onClick={() => setSelectedDate(dStr)}
-                  style={{
-                    aspectRatio: '2.5',
-                    borderRadius: '6px',
-                    border: isSelected ? '1px solid #10b981' : '1px solid var(--border-glass)',
-                    background: isSelected ? 'rgba(16, 185, 129, 0.08)' : isHoliday ? 'rgba(255,255,255,0.01)' : 'rgba(255,255,255,0.03)',
-                    cursor: 'pointer',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    justifyContent: 'space-between',
-                    padding: '2px 4px',
-                    transition: 'all 0.15s ease'
-                  }}
-                >
-                  <span style={{ 
-                    fontSize: '12px', 
-                    fontWeight: '800', 
-                    color: isHoliday ? '#ef4444' : 'var(--text-primary)',
-                    textAlign: 'left',
-                    paddingLeft: '1px'
-                  }}>
-                    {dayNum}
-                  </span>
-                  
-                  {activityCount > 0 ? (
-                    <span style={{ fontSize: '8px', background: '#10b981', color: '#fff', borderRadius: '3px', padding: '0px 2px', fontWeight: 'bold', alignSelf: 'flex-end' }}>
-                      {activityCount} rec
-                    </span>
-                  ) : isHoliday ? (
-                    <span style={{ fontSize: '8px', color: '#ef4444', fontWeight: 'bold', alignSelf: 'flex-end' }}>Holi</span>
-                  ) : null}
-                </div>
-              );
-            })}
-          </div>
-          {/* Master Employee Report */}
-          <div style={{ marginTop: '20px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px', flexWrap: 'wrap', gap: '10px' }}>
-              <h3 style={{ fontSize: '16px', fontWeight: 'bold', margin: 0 }}>Employee Log / Month Overview</h3>
-              <div style={{ display: 'flex', gap: '8px' }}>
-                <button onClick={() => handleExport('xls')} style={{ padding: '6px 12px', fontSize: '12px', background: '#10b981', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>Excel (XLS)</button>
-                <button onClick={() => handleExport('csv')} style={{ padding: '6px 12px', fontSize: '12px', background: '#3b82f6', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>CSV</button>
-                <button onClick={() => handleExport('pdf')} style={{ padding: '6px 12px', fontSize: '12px', background: '#ef4444', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>PDF</button>
-                <button onClick={() => handleExport('word')} style={{ padding: '6px 12px', fontSize: '12px', background: '#8b5cf6', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>Word</button>
-              </div>
-            </div>
-            <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '10.5px', minWidth: '950px' }}>
-              <thead>
-                <tr style={{ background: 'rgba(255,255,255,0.03)', textAlign: 'left' }}>
-                  <th rowSpan={2} style={{ padding: '6px 8px', borderBottom: '2px solid var(--border-glass)', borderRight: '1px solid var(--border-glass)', fontWeight: '700', verticalAlign: 'middle', minWidth: '110px' }}>Employee</th>
-                  <th colSpan={2} style={{ padding: '4px 6px', textAlign: 'center', borderBottom: '1px solid rgba(16,185,129,0.3)', borderLeft: '1px solid rgba(16,185,129,0.2)', color: '#10b981', fontWeight: '800', background: 'rgba(16,185,129,0.04)' }}>🟢 Present</th>
-                  <th colSpan={2} style={{ padding: '4px 6px', textAlign: 'center', borderBottom: '1px solid rgba(100,116,139,0.3)', borderLeft: '1px solid rgba(100,116,139,0.2)', color: '#64748b', fontWeight: '800', background: 'rgba(100,116,139,0.04)' }}>⚪ Weekly Off</th>
-                  <th colSpan={2} style={{ padding: '4px 6px', textAlign: 'center', borderBottom: '1px solid rgba(239,68,68,0.3)', borderLeft: '1px solid rgba(239,68,68,0.2)', color: '#ef4444', fontWeight: '800', background: 'rgba(239,68,68,0.04)' }}>🔴 Sick Leave</th>
-                  <th colSpan={2} style={{ padding: '4px 6px', textAlign: 'center', borderBottom: '1px solid rgba(251,191,36,0.3)', borderLeft: '1px solid rgba(251,191,36,0.2)', color: '#fbbf24', fontWeight: '800', background: 'rgba(251,191,36,0.04)' }}>🟡 Casual Leave</th>
-                  <th colSpan={2} style={{ padding: '4px 6px', textAlign: 'center', borderBottom: '1px solid rgba(168,85,247,0.3)', borderLeft: '1px solid rgba(168,85,247,0.2)', color: '#a855f7', fontWeight: '800', background: 'rgba(168,85,247,0.04)' }}>🟣 Privileged Leave</th>
-                  <th colSpan={2} style={{ padding: '4px 6px', textAlign: 'center', borderBottom: '1px solid rgba(59,130,246,0.3)', borderLeft: '1px solid rgba(59,130,246,0.2)', color: '#3b82f6', fontWeight: '800', background: 'rgba(59,130,246,0.04)' }}>🔵 Site Visit</th>
-                  <th colSpan={2} style={{ padding: '4px 6px', textAlign: 'center', borderBottom: '1px solid rgba(13,148,136,0.3)', borderLeft: '1px solid rgba(13,148,136,0.2)', color: '#0d9488', fontWeight: '800', background: 'rgba(13,148,136,0.04)' }}>🟢 Extended Work</th>
-                </tr>
-                <tr style={{ background: 'rgba(255,255,255,0.02)' }}>
-                  {[
-                    ['#10b981','rgba(16,185,129,0.2)'],
-                    ['#64748b','rgba(100,116,139,0.2)'],
-                    ['#ef4444','rgba(239,68,68,0.2)'],
-                    ['#fbbf24','rgba(251,191,36,0.2)'],
-                    ['#a855f7','rgba(168,85,247,0.2)'],
-                    ['#3b82f6','rgba(59,130,246,0.2)'],
-                    ['#0d9488','rgba(13,148,136,0.2)']
-                  ].map(([col, border], i) => [
-                    <th key={`c${i}`} style={{ padding: '4px 6px', textAlign: 'center', fontSize: '9.5px', fontWeight: '600', color: col, borderBottom: '2px solid var(--border-glass)', borderLeft: `1px solid ${border}`, minWidth: '38px' }}>Count</th>,
-                    <th key={`t${i}`} style={{ padding: '4px 6px', textAlign: 'left', fontSize: '9.5px', fontWeight: '600', color: 'var(--text-secondary)', borderBottom: '2px solid var(--border-glass)', minWidth: '85px' }}>Date & Time</th>
-                  ])}
-                </tr>
-              </thead>
-              <tbody>
-                {employees.map(emp => (
-                  <tr
-                    key={emp.id}
-                    onClick={() => setSelectedEmployeeId(emp.id)}
-                    style={{
-                      borderBottom: '1px solid var(--border-glass)',
-                      cursor: 'pointer',
-                      background: selectedEmployeeId === emp.id ? 'rgba(255,255,255,0.04)' : 'transparent',
-                      transition: 'background 0.15s'
-                    }}
-                  >
-                    <td style={{ padding: '10px 10px', fontWeight: '600', verticalAlign: 'top', borderRight: '1px solid var(--border-glass)' }}>{emp.name}</td>
-                    <td style={{ padding: '10px 8px', textAlign: 'center', verticalAlign: 'top', borderLeft: '1px solid rgba(16,185,129,0.15)' }}>{renderCountCell(emp.id, 'Present')}</td>
-                    <td style={{ padding: '10px 8px', verticalAlign: 'top' }}>{renderTimeLogsCell(emp.id, 'Present')}</td>
-                    
-                    <td style={{ padding: '10px 8px', textAlign: 'center', verticalAlign: 'top', borderLeft: '1px solid rgba(100,116,139,0.15)' }}>{renderCountCell(emp.id, 'Weekly Off')}</td>
-                    <td style={{ padding: '10px 8px', verticalAlign: 'top' }}>{renderTimeLogsCell(emp.id, 'Weekly Off')}</td>
-                    
-                    <td style={{ padding: '10px 8px', textAlign: 'center', verticalAlign: 'top', borderLeft: '1px solid rgba(239,68,68,0.15)' }}>{renderCountCell(emp.id, 'Sick Leave')}</td>
-                    <td style={{ padding: '10px 8px', verticalAlign: 'top' }}>{renderTimeLogsCell(emp.id, 'Sick Leave')}</td>
-                    
-                    <td style={{ padding: '10px 8px', textAlign: 'center', verticalAlign: 'top', borderLeft: '1px solid rgba(251,191,36,0.15)' }}>{renderCountCell(emp.id, 'Casual Leave')}</td>
-                    <td style={{ padding: '10px 8px', verticalAlign: 'top' }}>{renderTimeLogsCell(emp.id, 'Casual Leave')}</td>
-                    
-                    <td style={{ padding: '10px 8px', textAlign: 'center', verticalAlign: 'top', borderLeft: '1px solid rgba(168,85,247,0.15)' }}>{renderCountCell(emp.id, 'Privileged Leave')}</td>
-                    <td style={{ padding: '10px 8px', verticalAlign: 'top' }}>{renderTimeLogsCell(emp.id, 'Privileged Leave')}</td>
-                    
-                    <td style={{ padding: '10px 8px', textAlign: 'center', verticalAlign: 'top', borderLeft: '1px solid rgba(59,130,246,0.15)' }}>{renderCountCell(emp.id, 'Site Visit')}</td>
-                    <td style={{ padding: '10px 8px', verticalAlign: 'top' }}>{renderTimeLogsCell(emp.id, 'Site Visit')}</td>
-                    
-                    <td style={{ padding: '10px 8px', textAlign: 'center', verticalAlign: 'top', borderLeft: '1px solid rgba(13,148,136,0.15)' }}>{renderCountCell(emp.id, 'Extended Work')}</td>
-                    <td style={{ padding: '10px 8px', verticalAlign: 'top' }}>{renderTimeLogsCell(emp.id, 'Extended Work')}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', background: 'rgba(0,0,0,0.2)', padding: '4px 8px', borderRadius: '8px' }}>
+              <button className="back-btn" onClick={handlePrevMonth} style={{ padding: '2px 6px', margin: 0 }}><ChevronLeft size={14} /></button>
+              <span style={{ fontSize: '13px', fontWeight: 'bold', minWidth: '110px', textAlign: 'center' }}>{monthLabel}</span>
+              <button className="back-btn" onClick={handleNextMonth} style={{ padding: '2px 6px', margin: 0 }}><ChevronRight size={14} /></button>
             </div>
           </div>
         </div>
 
-        {/* Right Column: Date Detail Panel */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-          {/* Details for Selected Date */}
-          <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-glass)', borderRadius: '16px', padding: '20px' }}>
-            <h3 style={{ fontSize: '16px', fontWeight: 'bold', margin: '0 0 4px 0' }}>Daily Log Detail</h3>
-            <span style={{ fontSize: '13px', color: '#94a3b8' }}>Date: {selectedDate}</span>
-            <div style={{ fontSize: '11px', background: isPredecidedHoliday(selectedDate) ? 'rgba(239, 68, 68, 0.1)' : 'rgba(16, 185, 129, 0.1)', color: isPredecidedHoliday(selectedDate) ? '#ef4444' : '#10b981', display: 'inline-block', padding: '3px 8px', borderRadius: '4px', fontWeight: 'bold', marginTop: '6px' }}>
-              {holidayText}
+        {/* Leave Allocations Panel */}
+        {showAllocPanel && (
+          <div style={{ background: 'rgba(16, 185, 129, 0.04)', border: '1px solid rgba(16, 185, 129, 0.2)', borderRadius: '16px', padding: '20px' }}>
+            <h3 style={{ fontSize: '15px', fontWeight: 'bold', margin: '0 0 12px 0', color: '#10b981' }}>Configure Monthly Leave Allocations ({monthLabel})</h3>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '12px', marginBottom: '15px' }}>
+              <div>
+                <label style={{ display: 'block', fontSize: '11px', fontWeight: 'bold', color: '#94a3b8', marginBottom: '4px' }}>Target Employee</label>
+                <select
+                  value={allocTarget}
+                  onChange={e => setAllocTarget(e.target.value)}
+                  style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid var(--border-glass)', background: 'var(--bg-card, #1e293b)', color: '#fff', fontSize: '12px' }}
+                >
+                  <option value="all">All Employees</option>
+                  {employees.map(emp => (
+                    <option key={emp.id} value={emp.id}>{emp.name} ({emp.department})</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label style={{ display: 'block', fontSize: '11px', fontWeight: 'bold', color: '#94a3b8', marginBottom: '4px' }}>Weekly Offs (WO)</label>
+                <input type="number" min="0" value={allocWO} onChange={e => setAllocWO(e.target.value)} style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid var(--border-glass)', background: 'rgba(0,0,0,0.2)', color: '#fff', fontSize: '12px' }} />
+              </div>
+              <div>
+                <label style={{ display: 'block', fontSize: '11px', fontWeight: 'bold', color: '#94a3b8', marginBottom: '4px' }}>Sick Leave (SL)</label>
+                <input type="number" min="0" value={allocSL} onChange={e => setAllocSL(e.target.value)} style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid var(--border-glass)', background: 'rgba(0,0,0,0.2)', color: '#fff', fontSize: '12px' }} />
+              </div>
+              <div>
+                <label style={{ display: 'block', fontSize: '11px', fontWeight: 'bold', color: '#94a3b8', marginBottom: '4px' }}>Casual Leave (CL)</label>
+                <input type="number" min="0" value={allocCL} onChange={e => setAllocCL(e.target.value)} style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid var(--border-glass)', background: 'rgba(0,0,0,0.2)', color: '#fff', fontSize: '12px' }} />
+              </div>
+              <div>
+                <label style={{ display: 'block', fontSize: '11px', fontWeight: 'bold', color: '#94a3b8', marginBottom: '4px' }}>Privileged Leave (PL)</label>
+                <input type="number" min="0" value={allocPL} onChange={e => setAllocPL(e.target.value)} style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid var(--border-glass)', background: 'rgba(0,0,0,0.2)', color: '#fff', fontSize: '12px' }} />
+              </div>
             </div>
+            <button
+              onClick={handleSaveLeaveAllocation}
+              disabled={allocSaving}
+              style={{ padding: '8px 16px', borderRadius: '8px', border: 'none', background: '#10b981', color: '#fff', fontWeight: 'bold', fontSize: '13px', cursor: 'pointer' }}
+            >
+              {allocSaving ? 'Saving...' : 'Save Allocations'}
+            </button>
+          </div>
+        )}
 
-            <div style={{ marginTop: '15px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
-              {selectedDateRecords.length === 0 ? (
-                <div style={{ fontSize: '13px', color: '#94a3b8', textAlign: 'center', padding: '20px 0' }}>
-                  No attendance logs marked for this date.
-                </div>
-              ) : (
-                selectedDateRecords.map(r => (
-                  <div key={r.employee_id} style={{ background: 'rgba(255,255,255,0.02)', padding: '12px', border: '1px solid var(--border-glass)', borderRadius: '8px' }}>
-                    <div style={{ fontWeight: 'bold', fontSize: '13px', marginBottom: '8px' }}>{r.employee_name}</div>
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
-                      {Object.entries(r.selections || {}).map(([sel, time]) => (
-                        <div key={sel} style={{ fontSize: '11px', background: 'rgba(255,255,255,0.05)', border: '1px solid var(--border-glass)', padding: '4px 8px', borderRadius: '6px' }}>
-                          <strong>{sel}</strong> at {time}
-                        </div>
-                      ))}
+        {/* Employee Grid & Attendance Logs Table */}
+        <div style={{ display: 'grid', gridTemplateColumns: '260px 1fr', gap: '20px' }}>
+          {/* Employee Directory List */}
+          <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-glass)', borderRadius: '16px', padding: '16px', maxHeight: '600px', overflowY: 'auto' }}>
+            <h3 style={{ fontSize: '13px', fontWeight: 'bold', color: '#94a3b8', textTransform: 'uppercase', marginBottom: '12px' }}>Employees</h3>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+              {employees.map(emp => {
+                const isSelected = selectedEmployeeId === emp.id;
+                const stats = getEmployeeStats(emp.id);
+                return (
+                  <div
+                    key={emp.id}
+                    onClick={() => setSelectedEmployeeId(emp.id)}
+                    style={{
+                      padding: '10px 12px',
+                      borderRadius: '8px',
+                      background: isSelected ? 'rgba(59, 130, 246, 0.15)' : 'rgba(255,255,255,0.01)',
+                      border: isSelected ? '1px solid #3b82f6' : '1px solid transparent',
+                      cursor: 'pointer',
+                      transition: 'all 0.2s ease'
+                    }}
+                  >
+                    <div style={{ fontSize: '13px', fontWeight: 'bold', color: isSelected ? '#3b82f6' : 'var(--text-primary)' }}>{emp.name}</div>
+                    <div style={{ fontSize: '11px', color: '#94a3b8' }}>{emp.department}</div>
+                    <div style={{ display: 'flex', gap: '6px', marginTop: '6px', fontSize: '10px' }}>
+                      <span style={{ color: '#10b981' }}>P: {stats.presentCount}</span>
+                      <span style={{ color: '#fbbf24' }}>CL: {stats.casualLeaveCount}</span>
+                      <span style={{ color: '#ef4444' }}>SL: {stats.sickLeaveCount}</span>
                     </div>
                   </div>
-                ))
-              )}
+                );
+              })}
             </div>
           </div>
 
-          {/* Details for Selected Employee (if selected) */}
-          {selectedEmployeeId && (
+          {/* Selected Employee Month Detailed Log */}
+          {!selectedEmployeeId ? (
+            <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-glass)', borderRadius: '16px', padding: '40px', textAlign: 'center', color: '#94a3b8', fontSize: '14px' }}>
+              Select an employee from the directory list to inspect monthly attendance logs and leave records.
+            </div>
+          ) : (
             <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-glass)', borderRadius: '16px', padding: '20px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-                <h3 style={{ fontSize: '16px', fontWeight: 'bold', margin: 0 }}>
-                  {employees.find(e => e.id === selectedEmployeeId)?.name || 'Employee Detail'}
-                </h3>
-                <button 
-                  style={{ background: 'transparent', border: 'none', color: '#ef4444', cursor: 'pointer', fontSize: '11px', fontWeight: 'bold' }} 
-                  onClick={() => setSelectedEmployeeId('')}
-                >
-                  Clear Selection
-                </button>
-              </div>
-
-              {/* Late Attendance Marking Permit Control */}
-              <div style={{ background: 'rgba(255,255,255,0.01)', border: '1px solid var(--border-glass)', borderRadius: '10px', padding: '12px', marginBottom: '15px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                <div style={{ fontSize: '12px', color: '#cbd5e1', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span>Late Mark Access:</span>
-                  <span style={{ 
-                    fontWeight: 'bold', 
-                    fontSize: '11px', 
-                    color: employees.find(e => e.id === selectedEmployeeId)?.allow_late_attendance_marking ? '#10b981' : '#ef4444',
-                    background: employees.find(e => e.id === selectedEmployeeId)?.allow_late_attendance_marking ? 'rgba(16,185,129,0.1)' : 'rgba(239,68,68,0.1)',
-                    padding: '2px 8px',
-                    borderRadius: '4px'
-                  }}>
-                    {employees.find(e => e.id === selectedEmployeeId)?.allow_late_attendance_marking ? 'Permitted' : 'Locked'}
-                  </span>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
+                <div>
+                  <h3 style={{ fontSize: '16px', fontWeight: 'bold', margin: 0 }}>
+                    {employees.find(e => e.id === selectedEmployeeId)?.name}'s Attendance Logs
+                  </h3>
+                  <span style={{ fontSize: '12px', color: '#94a3b8' }}>{monthLabel}</span>
                 </div>
-                {!employees.find(e => e.id === selectedEmployeeId)?.allow_late_attendance_marking && (
-                  <button 
-                    onClick={() => {
-                      const empObj = employees.find(e => e.id === selectedEmployeeId);
-                      setConfirmConfig({
-                        isOpen: true,
-                        title: 'Permit Late Attendance',
-                        message: `Are you sure you want to permit late attendance marking for ${empObj ? empObj.name : 'this employee'}?`,
-                        confirmText: 'Yes, Permit Late Marking',
-                        type: 'warning',
-                        onConfirm: async () => {
-                          closeConfirm();
-                          setLoading(true);
-                          try {
-                            const res = await api.attendance.permitLateAttendance(selectedEmployeeId);
-                            await alert(res.message || 'Late marking permitted successfully!');
-                            fetchAdminData();
-                          } catch (err) {
-                            await alert(err.message || 'Failed to permit late marking.');
-                          } finally {
-                            setLoading(false);
-                          }
-                        },
-                        onCancel: closeConfirm
-                      });
-                    }}
-                    className="sso-btn"
-                    style={{ margin: 0, padding: '8px', fontSize: '12px', width: '100%' }}
-                    disabled={loading}
-                  >
-                    Permit Late Attendance
-                  </button>
-                )}
-                <button
-                  onClick={() => {
-                    setConfirmConfig({
-                      isOpen: true,
-                      title: 'Permit All Late Attendance',
-                      message: 'Are you sure you want to permit late attendance marking for ALL active employees?',
-                      confirmText: 'Yes, Permit All',
-                      type: 'warning',
-                      onConfirm: async () => {
-                        closeConfirm();
-                        setLockLoading(true);
-                        try {
-                          const res = await api.attendance.permitLateAttendanceAll();
-                          alert(res.message || 'Late attendance marking permitted for all active employees.');
-                          fetchAdminData();
-                        } catch (err) {
-                          alert(err.message || 'Failed to permit late attendance marking.');
-                        } finally {
-                          setLockLoading(false);
-                        }
-                      },
-                      onCancel: closeConfirm
-                    });
-                  }}
-                  style={{
-                    background: '#3b82f6',
-                    color: '#fff',
-                    border: 'none',
-                    padding: '6px 12px',
-                    borderRadius: '6px',
-                    fontSize: '12px',
-                    cursor: 'pointer',
-                    fontWeight: 'bold',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: '6px',
-                    opacity: lockLoading ? 0.6 : 1,
-                    marginTop: '4px'
-                  }}
-                >
-                  Permit All (Late Mark)
-                </button>
               </div>
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
