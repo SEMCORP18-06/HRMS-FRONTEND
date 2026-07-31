@@ -266,7 +266,8 @@ Note: The attached PDF will be encrypted using Option 2 password standard (First
     };
   };
 
-  const handleCalculateCTC = () => {
+  const handleCalculateCTC = (e) => {
+    if (e && e.preventDefault) e.preventDefault();
     const amt = parseFloat(calcAmount);
     if (isNaN(amt) || amt <= 0) {
       alert('Please enter a valid positive salary amount.');
@@ -813,6 +814,7 @@ Note: The attached PDF will be encrypted using Option 2 password standard (First
             </div>
 
             <button
+              type="button"
               onClick={handleCalculateCTC}
               className="btn-primary"
               style={{ marginTop: '15px', width: '100%', padding: '12px', fontSize: '14px', fontWeight: 'bold' }}
