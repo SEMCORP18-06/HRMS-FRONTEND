@@ -447,6 +447,25 @@ Note: The attached PDF will be encrypted using Option 2 password standard (First
     outline: 'none',
   };
 
+  const exportBtnStyle = (color) => ({
+    display: 'flex',
+    alignItems: 'center',
+    gap: '6px',
+    padding: '9px 16px',
+    borderRadius: '10px',
+    border: `1px solid ${color}40`,
+    background: `${color}12`,
+    color: color,
+    fontSize: '12px',
+    fontWeight: '600',
+    cursor: 'pointer',
+    transition: 'all 0.2s',
+    whiteSpace: 'nowrap',
+  });
+
+  // Safe number formatter — never crashes on undefined/null
+  const safeFmt = (val) => Number(val || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
   return (
     <div className="module-container">
       <div className="module-header">
@@ -465,6 +484,7 @@ Note: The attached PDF will be encrypted using Option 2 password standard (First
         <div style={{ display: 'flex', gap: '8px', marginTop: '15px' }}>
           {!isAdmin ? (
             <button
+              type="button"
               onClick={() => setActiveTab('myPayslips')}
               className={activeTab === 'myPayslips' ? 'btn-primary' : 'back-btn'}
               style={{ margin: 0, padding: '8px 16px', fontSize: '13px' }}
@@ -474,6 +494,7 @@ Note: The attached PDF will be encrypted using Option 2 password standard (First
           ) : (
             <>
               <button
+                type="button"
                 onClick={() => setActiveTab('payslips')}
                 className={activeTab === 'payslips' ? 'btn-primary' : 'back-btn'}
                 style={{ margin: 0, padding: '6px 14px', fontSize: '12px' }}
@@ -481,6 +502,7 @@ Note: The attached PDF will be encrypted using Option 2 password standard (First
                 Payslips Dispatcher & UAN/ESIC Profile
               </button>
               <button
+                type="button"
                 onClick={() => setActiveTab('ctcCalculator')}
                 className={activeTab === 'ctcCalculator' ? 'btn-primary' : 'back-btn'}
                 style={{ margin: 0, padding: '6px 14px', fontSize: '12px' }}
@@ -488,6 +510,7 @@ Note: The attached PDF will be encrypted using Option 2 password standard (First
                 CTC Break-up Generator
               </button>
               <button
+                type="button"
                 onClick={() => setActiveTab('myPayslips')}
                 className={activeTab === 'myPayslips' ? 'btn-primary' : 'back-btn'}
                 style={{ margin: 0, padding: '6px 14px', fontSize: '12px' }}
@@ -673,6 +696,7 @@ Note: The attached PDF will be encrypted using Option 2 password standard (First
                   )}
 
                   <button
+                    type="button"
                     onClick={handleSaveEmployeeMeta}
                     disabled={savingMeta}
                     style={{
@@ -736,6 +760,7 @@ Note: The attached PDF will be encrypted using Option 2 password standard (First
                         </td>
                         <td>
                           <button
+                            type="button"
                             onClick={() => handleEmailPayslip(pr.id, pr.employee?.name)}
                             disabled={emailStatus[pr.id] === 'sending'}
                             className="btn-primary"
@@ -829,13 +854,13 @@ Note: The attached PDF will be encrypted using Option 2 password standard (First
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
                 <h3 style={{ fontSize: '16px', fontWeight: 'bold', margin: 0 }}>CTC Break-up Results</h3>
                 <div style={{ display: 'flex', gap: '8px' }}>
-                  <button onClick={() => handleExportCTC('pdf')} style={exportBtnStyle('#ef4444')}>
+                  <button type="button" onClick={() => handleExportCTC('pdf')} style={exportBtnStyle('#ef4444')}>
                     <Download size={14} /> PDF
                   </button>
-                  <button onClick={() => handleExportCTC('excel')} style={exportBtnStyle('#10b981')}>
+                  <button type="button" onClick={() => handleExportCTC('excel')} style={exportBtnStyle('#10b981')}>
                     <Download size={14} /> Excel
                   </button>
-                  <button onClick={() => handleExportCTC('word')} style={exportBtnStyle('#3b82f6')}>
+                  <button type="button" onClick={() => handleExportCTC('word')} style={exportBtnStyle('#3b82f6')}>
                     <Download size={14} /> Word
                   </button>
                 </div>
@@ -851,14 +876,14 @@ Note: The attached PDF will be encrypted using Option 2 password standard (First
                     </tr>
                   </thead>
                   <tbody>
-                    <tr><td>Basic Salary (50% Gross)</td><td style={{ textAlign: 'right' }}>₹{calcResult.basic.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td><td style={{ textAlign: 'right' }}>₹{(calcResult.basic * 12).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td></tr>
-                    <tr><td>HRA (40% Basic)</td><td style={{ textAlign: 'right' }}>₹{calcResult.hra.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td><td style={{ textAlign: 'right' }}>₹{(calcResult.hra * 12).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td></tr>
-                    <tr><td>Conveyance Allowance</td><td style={{ textAlign: 'right' }}>₹{calcResult.conveyance.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td><td style={{ textAlign: 'right' }}>₹{(calcResult.conveyance * 12).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td></tr>
-                    <tr><td>Special Allowance</td><td style={{ textAlign: 'right' }}>₹{calcResult.special.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td><td style={{ textAlign: 'right' }}>₹{(calcResult.special * 12).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td></tr>
-                    <tr style={{ background: 'rgba(16, 185, 129, 0.05)', fontWeight: 'bold' }}><td>Gross Salary</td><td style={{ textAlign: 'right', color: '#10b981' }}>₹{calcResult.gross.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td><td style={{ textAlign: 'right', color: '#10b981' }}>₹{(calcResult.gross * 12).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td></tr>
-                    <tr><td>Employee PF (12%)</td><td style={{ textAlign: 'right' }}>₹{calcResult.employeePF.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td><td style={{ textAlign: 'right' }}>₹{(calcResult.employeePF * 12).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td></tr>
-                    <tr><td>Professional Tax (PT)</td><td style={{ textAlign: 'right' }}>₹{calcResult.pt.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td><td style={{ textAlign: 'right' }}>₹{calcResult.pt_yearly.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td></tr>
-                    <tr style={{ background: 'rgba(59, 130, 246, 0.08)', fontWeight: 'bold' }}><td>Net Take Home Salary</td><td style={{ textAlign: 'right', color: '#3b82f6' }}>₹{calcResult.netTakeHome.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td><td style={{ textAlign: 'right', color: '#3b82f6' }}>₹{((calcResult.finalGross * 12) - ((calcResult.employeePF * 12) + (calcResult.employeeESIC * 12) + calcResult.pt_yearly)).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td></tr>
+                    <tr><td>Basic Salary (50% Gross)</td><td style={{ textAlign: 'right' }}>₹{safeFmt(calcResult.basic)}</td><td style={{ textAlign: 'right' }}>₹{safeFmt(calcResult.basic * 12)}</td></tr>
+                    <tr><td>HRA (40% Basic)</td><td style={{ textAlign: 'right' }}>₹{safeFmt(calcResult.hra)}</td><td style={{ textAlign: 'right' }}>₹{safeFmt(calcResult.hra * 12)}</td></tr>
+                    <tr><td>Conveyance Allowance</td><td style={{ textAlign: 'right' }}>₹{safeFmt(calcResult.conveyance)}</td><td style={{ textAlign: 'right' }}>₹{safeFmt(calcResult.conveyance * 12)}</td></tr>
+                    <tr><td>Special Allowance</td><td style={{ textAlign: 'right' }}>₹{safeFmt(calcResult.special)}</td><td style={{ textAlign: 'right' }}>₹{safeFmt(calcResult.special * 12)}</td></tr>
+                    <tr style={{ background: 'rgba(16, 185, 129, 0.05)', fontWeight: 'bold' }}><td>Gross Salary</td><td style={{ textAlign: 'right', color: '#10b981' }}>₹{safeFmt(calcResult.gross)}</td><td style={{ textAlign: 'right', color: '#10b981' }}>₹{safeFmt(calcResult.gross * 12)}</td></tr>
+                    <tr><td>Employee PF (12%)</td><td style={{ textAlign: 'right' }}>₹{safeFmt(calcResult.employeePF)}</td><td style={{ textAlign: 'right' }}>₹{safeFmt(calcResult.employeePF * 12)}</td></tr>
+                    <tr><td>Professional Tax (PT)</td><td style={{ textAlign: 'right' }}>₹{safeFmt(calcResult.pt)}</td><td style={{ textAlign: 'right' }}>₹{safeFmt(calcResult.pt_yearly)}</td></tr>
+                    <tr style={{ background: 'rgba(59, 130, 246, 0.08)', fontWeight: 'bold' }}><td>Net Take Home Salary</td><td style={{ textAlign: 'right', color: '#3b82f6' }}>₹{safeFmt(calcResult.netTakeHome)}</td><td style={{ textAlign: 'right', color: '#3b82f6' }}>₹{safeFmt((calcResult.finalGross * 12) - ((calcResult.employeePF * 12) + (calcResult.employeeESIC * 12) + (calcResult.pt_yearly || 0)))}</td></tr>
                   </tbody>
                 </table>
               </div>
