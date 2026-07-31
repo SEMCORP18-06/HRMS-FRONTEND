@@ -1,18 +1,19 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { api } from '../utils/api';
 import ConfirmModal from './ConfirmModal';
-import { IndianRupee, Upload, Mail, Check, AlertTriangle, Download, FileText, Table2, ChevronDown, User, Building2, BadgeCheck } from 'lucide-react';
+import { IndianRupee, Upload, Mail, Check, AlertTriangle, Download, FileText, Table2, ChevronDown, User, Building2, BadgeCheck, ShieldCheck, Lock, Save, Sparkles } from 'lucide-react';
 
 const API_BASE = 'https://hrms-backend-gamma.vercel.app/api';
 
-export default function PayrollHub() {
+export default function PayrollHub({ user }) {
+  const isAdmin = user?.role === 'Admin (HR)';
   const [payrolls, setPayrolls] = useState([]);
   const [uploadStatus, setUploadStatus] = useState('');
   const [emailStatus, setEmailStatus] = useState({});
   const [loading, setLoading] = useState(false);
   const fileInputRef = useRef();
 
-  const [activeTab, setActiveTab] = useState('payslips');
+  const [activeTab, setActiveTab] = useState(isAdmin ? 'payslips' : 'myPayslips');
 
   // Confirm Modal state
   const [confirmConfig, setConfirmConfig] = useState({
@@ -29,13 +30,25 @@ export default function PayrollHub() {
     setConfirmConfig(prev => ({ ...prev, isOpen: false }));
   };
 
-  // Employee lookup state
+  // Employee lookup & UAN/ESIC metadata state
   const [allEmployees, setAllEmployees] = useState([]);
   const [departments, setDepartments] = useState([]);
   const [selectedDept, setSelectedDept] = useState('');
   const [filteredEmployees, setFilteredEmployees] = useState([]);
   const [selectedEmpId, setSelectedEmpId] = useState('');
   const [selectedEmployee, setSelectedEmployee] = useState(null);
+
+  // One-time persistent employee metadata
+  const [uanNo, setUanNo] = useState('');
+  const [esicNo, setEsicNo] = useState('');
+  const [personalEmail, setPersonalEmail] = useState('');
+  const [birthdayDate, setBirthdayDate] = useState('');
+  const [savingMeta, setSavingMeta] = useState(false);
+  const [metaSaveMsg, setMetaSaveMsg] = useState('');
+
+  // Employee Portal "My Payslips" state
+  const [myPayslips, setMyPayslips] = useState([]);
+  const [loadingMyPayslips, setLoadingMyPayslips] = useState(false);
 
   // CTC Calculator state
   const [calcInputType, setCalcInputType] = useState('gross');
@@ -50,12 +63,13 @@ export default function PayrollHub() {
   useEffect(() => {
     fetchPayrolls();
     fetchEmployees();
+    fetchMyPayslips();
   }, []);
 
   const fetchPayrolls = async () => {
     try {
       const data = await api.payroll.list();
-      setPayrolls(data);
+      setPayrolls(data || []);
     } catch (err) {
       console.error(err);
     }
@@ -63,18 +77,25 @@ export default function PayrollHub() {
 
   const fetchEmployees = async () => {
     try {
-      const token = localStorage.getItem('hr_token');
-      const res = await fetch(`${API_BASE}/employees`, {
-        headers: token ? { 'Authorization': `Bearer ${token}` } : {},
-      });
-      if (!res.ok) return;
-      const data = await res.json();
-      const empList = Array.isArray(data) ? data : (data.employees || data.items || []);
+      const data = await api.employees.list(true);
+      const empList = Array.isArray(data) ? data : (data.employees || []);
       setAllEmployees(empList);
       const depts = [...new Set(empList.map(e => e.department).filter(Boolean))].sort();
       setDepartments(depts);
     } catch (err) {
       console.error('Failed to fetch employees:', err);
+    }
+  };
+
+  const fetchMyPayslips = async () => {
+    setLoadingMyPayslips(true);
+    try {
+      const data = await api.payroll.getMyPayslips();
+      setMyPayslips(data || []);
+    } catch (err) {
+      console.error('Failed to load my payslips:', err);
+    } finally {
+      setLoadingMyPayslips(false);
     }
   };
 
@@ -94,9 +115,38 @@ export default function PayrollHub() {
     setSelectedEmpId(empId);
     const emp = allEmployees.find(e => (e._id || e.id || e.employee_code) === empId || String(e._id) === empId);
     setSelectedEmployee(emp || null);
+    
+    // Auto-populate UAN, ESIC, Personal Email, and Birthday
+    setUanNo(emp?.uan_no || emp?.uan || '');
+    setEsicNo(emp?.esic_no || emp?.esic || '');
+    setPersonalEmail(emp?.personal_email || emp?.email || '');
+    setBirthdayDate(emp?.birthday || emp?.dob || '');
+    setMetaSaveMsg('');
+
     // Clear previous result when employee changes
     setCalcResult(null);
     setCalcAmount('');
+  };
+
+  const handleSaveEmployeeMeta = async () => {
+    if (!selectedEmpId) return;
+    setSavingMeta(true);
+    setMetaSaveMsg('');
+    try {
+      await api.payroll.updateMeta(selectedEmpId, {
+        uan_no: uanNo,
+        esic_no: esicNo,
+        personal_email: personalEmail,
+        birthday: birthdayDate
+      });
+      setMetaSaveMsg('UAN, ESIC & Personal Email saved permanently to employee profile!');
+      fetchEmployees();
+    } catch (err) {
+      console.error(err);
+      setMetaSaveMsg(`Failed to save: ${err.message}`);
+    } finally {
+      setSavingMeta(false);
+    }
   };
 
   const handleFileUpload = (e) => {
@@ -132,9 +182,11 @@ export default function PayrollHub() {
   const handleEmailPayslip = (payrollId, empName = 'Employee') => {
     setConfirmConfig({
       isOpen: true,
-      title: 'Email Payslip',
-      message: `Are you sure you want to email official payslip to ${empName}?`,
-      confirmText: 'Email Payslip',
+      title: 'Release & Email Password-Protected Payslip',
+      message: `Are you sure you want to release and email official password-protected payslip PDF to ${empName}?
+
+Note: The attached PDF will be encrypted using Option 2 password standard (First 4 letters of name UPPERCASE + Birth Year, e.g. JOHN1995).`,
+      confirmText: 'Release & Send Email',
       type: 'info',
       onConfirm: async () => {
         closeConfirm();
@@ -145,11 +197,32 @@ export default function PayrollHub() {
           fetchPayrolls();
         } catch (err) {
           setEmailStatus(prev => ({ ...prev, [payrollId]: 'failed' }));
-          await alert(`Mailing failed: ${err.message}`);
+          alert(`Mailing failed: ${err.message}`);
         }
       },
       onCancel: closeConfirm
     });
+  };
+
+  const handleDownloadPayslip = async (payrollId, period) => {
+    try {
+      const token = localStorage.getItem('hr_token');
+      const res = await fetch(api.payroll.downloadUrl(payrollId), {
+        headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+      });
+      if (!res.ok) throw new Error('Download failed');
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `Payslip_${period}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      alert('Failed to download encrypted payslip PDF: ' + err.message);
+    }
   };
 
   const triggerFileSelect = () => fileInputRef.current.click();
@@ -192,20 +265,20 @@ export default function PayrollHub() {
     };
   };
 
-  const handleCalculateCTC = async () => {
+  const handleCalculateCTC = () => {
     const amt = parseFloat(calcAmount);
     if (isNaN(amt) || amt <= 0) {
-      await alert('Please enter a valid positive salary amount.');
+      alert('Please enter a valid positive salary amount.');
       return;
     }
     let gross = amt;
     if (calcInputType === 'net') {
-      let low = amt, high = amt * 3, iterations = 0;
-      while (high - low > 0.001 && iterations < 100) {
+      let low = amt, high = amt * 3;
+      for (let i = 0; i < 40; i++) {
         const mid = (low + high) / 2;
         const res = runCTCFormula(mid);
-        if (res.netTakeHome < amt) low = mid; else high = mid;
-        iterations++;
+        if (res.netTakeHome < amt) low = mid;
+        else high = mid;
       }
       gross = (low + high) / 2;
     }
@@ -213,90 +286,82 @@ export default function PayrollHub() {
   };
 
   useEffect(() => {
+    if (!calcAmount || isNaN(parseFloat(calcAmount))) return;
     const amt = parseFloat(calcAmount);
-    if (!isNaN(amt) && amt > 0) {
-      let gross = amt;
-      if (calcInputType === 'net') {
-        let low = amt, high = amt * 3, iterations = 0;
-        while (high - low > 0.001 && iterations < 100) {
-          const mid = (low + high) / 2;
-          const res = runCTCFormula(mid);
-          if (res.netTakeHome < amt) low = mid; else high = mid;
-          iterations++;
-        }
-        gross = (low + high) / 2;
+    let gross = amt;
+    if (calcInputType === 'net') {
+      let low = amt, high = amt * 3;
+      for (let i = 0; i < 40; i++) {
+        const mid = (low + high) / 2;
+        const res = runCTCFormula(mid);
+        if (res.netTakeHome < amt) low = mid;
+        else high = mid;
       }
-      setCalcResult(runCTCFormula(gross));
+      gross = (low + high) / 2;
     }
+    setCalcResult(runCTCFormula(gross));
   }, [ptType, calcMonth, calcInputType]);
 
-  // ─── Export Handler ───────────────────────────────────────────────────
-  const handleExport = async (fmt) => {
+  const handleExportCTC = async (fmt) => {
     if (!calcResult) {
       alert('Please calculate CTC first.');
       return;
     }
+    if (!selectedEmployee) {
+      alert('Please select a Department and Employee from the dropdown first.');
+      return;
+    }
     setExportLoading(prev => ({ ...prev, [fmt]: true }));
-
-    const employeeInfo = selectedEmployee ? {
-      name: selectedEmployee.name || selectedEmployee.full_name || 'N/A',
-      emp_id: selectedEmployee.employee_code || selectedEmployee.emp_id || selectedEmployee._id || 'N/A',
-      department: selectedEmployee.department || selectedDept || 'N/A',
-      designation: selectedEmployee.designation || selectedEmployee.job_title || selectedEmployee.position || 'N/A',
-    } : {
-      name: 'N/A', emp_id: 'N/A', department: 'N/A', designation: 'N/A'
-    };
-
-    const ctcData = {
-      basic: calcResult.basic,
-      hra: calcResult.hra,
-      conveyance: calcResult.conveyance,
-      education: calcResult.education,
-      medical: calcResult.medical,
-      special: calcResult.special,
-      gross: calcResult.gross,
-      bonus: calcResult.bonus,
-      finalGross: calcResult.finalGross,
-      employeePF: calcResult.employeePF,
-      employeeESIC: calcResult.employeeESIC,
-      pt: calcResult.pt,
-      pt_yearly: calcResult.pt_yearly,
-      totalDeductions: calcResult.totalDeductions,
-      netTakeHome: calcResult.netTakeHome,
-      employerPF: calcResult.employerPF,
-      employerESIC: calcResult.employerESIC,
-      gratuity: calcResult.gratuity,
-      others: calcResult.others,
-      totalCTC: calcResult.totalCTC,
-    };
-
     try {
-      const token = localStorage.getItem('hr_token');
+      const employeeInfo = {
+        name: selectedEmployee.name || 'N/A',
+        emp_id: selectedEmployee.emp_id || selectedEmployee.employee_code || selectedEmployee.id || 'N/A',
+        role: selectedEmployee.role || selectedEmployee.designation || 'N/A',
+        department: selectedEmployee.department || selectedDept || 'N/A',
+      };
+      const ctcData = {
+        basic: calcResult.basic,
+        hra: calcResult.hra,
+        conveyance: calcResult.conveyance,
+        education: calcResult.education,
+        medical: calcResult.medical,
+        special: calcResult.special,
+        gross: calcResult.gross,
+        bonus: calcResult.bonus,
+        finalGross: calcResult.finalGross,
+        employeePF: calcResult.employeePF,
+        employeeESIC: calcResult.employeeESIC,
+        pt: calcResult.pt,
+        pt_yearly: calcResult.pt_yearly,
+        totalDeductions: calcResult.totalDeductions,
+        netTakeHome: calcResult.netTakeHome,
+        employerPF: calcResult.employerPF,
+        employerESIC: calcResult.employerESIC,
+        gratuity: calcResult.gratuity,
+        others: calcResult.others,
+        totalCTC: calcResult.totalCTC,
+      };
+
       const res = await fetch(`${API_BASE}/payroll/ctc/export`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+          'Authorization': `Bearer ${localStorage.getItem('hr_token')}`
         },
         body: JSON.stringify({ format: fmt, employee_info: employeeInfo, ctc_data: ctcData, location: 'Pune' }),
       });
-
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.detail || `Export failed (${res.status})`);
-      }
-
+      if (!res.ok) throw new Error('Export failed');
       const blob = await res.blob();
-      const extMap = { pdf: 'pdf', excel: 'xlsx', word: 'docx' };
       const nameMap = { pdf: 'CTC_Breakup.pdf', excel: 'CTC_Breakup.xlsx', word: 'CTC_Breakup.docx' };
-      const url = URL.createObjectURL(blob);
+      const filename = nameMap[fmt] || `CTC_Breakup.${fmt}`;
+      const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = nameMap[fmt];
+      a.download = filename;
       document.body.appendChild(a);
       a.click();
       a.remove();
-      URL.revokeObjectURL(url);
+      window.URL.revokeObjectURL(url);
     } catch (err) {
       alert(`Export error: ${err.message}`);
     } finally {
@@ -332,15 +397,15 @@ export default function PayrollHub() {
 | **Total CTC of Employee** | **${f(calcResult.totalCTC)}** | **${f(calcResult.totalCTC * 12)}** |`;
     try {
       await navigator.clipboard.writeText(tbl);
-      await alert('Markdown table copied to clipboard!');
+      alert('Markdown table copied to clipboard!');
     } catch (err) {
-      await alert('Failed to copy: ' + err.message);
+      alert('Failed to copy: ' + err.message);
     }
   };
 
   // ─── Styles ────────────────────────────────────────────────────────────
   const cardStyle = {
-    background: 'rgba(255,255,255,0.03)',
+    background: 'var(--bg-card)',
     border: '1px solid var(--border-glass)',
     borderRadius: '16px',
     padding: '22px',
@@ -349,7 +414,7 @@ export default function PayrollHub() {
 
   const labelStyle = {
     fontSize: '11px',
-    fontWeight: '600',
+    fontWeight: '700',
     textTransform: 'uppercase',
     letterSpacing: '0.5px',
     color: '#94a3b8',
@@ -367,41 +432,18 @@ export default function PayrollHub() {
     fontSize: '13px',
     outline: 'none',
     cursor: 'pointer',
-    appearance: 'none',
   };
 
-  const empCardStyle = {
-    background: 'linear-gradient(135deg, rgba(16,185,129,0.07), rgba(59,130,246,0.07))',
-    border: '1px solid rgba(16,185,129,0.25)',
-    borderRadius: '14px',
-    padding: '18px 22px',
-    marginTop: '18px',
-    display: 'grid',
-    gridTemplateColumns: '1fr 1fr',
-    gap: '12px 24px',
+  const inputStyle = {
+    background: 'var(--bg-card)',
+    border: '1px solid var(--border-glass)',
+    color: 'var(--text-primary)',
+    padding: '10px 12px',
+    borderRadius: '8px',
+    width: '100%',
+    fontSize: '13px',
+    outline: 'none',
   };
-
-  const empFieldStyle = {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '2px',
-  };
-
-  const exportBtnStyle = (color) => ({
-    display: 'flex',
-    alignItems: 'center',
-    gap: '6px',
-    padding: '9px 16px',
-    borderRadius: '10px',
-    border: `1px solid ${color}40`,
-    background: `${color}12`,
-    color: color,
-    fontSize: '12px',
-    fontWeight: '600',
-    cursor: 'pointer',
-    transition: 'all 0.2s',
-    whiteSpace: 'nowrap',
-  });
 
   return (
     <div className="module-container">
@@ -411,33 +453,122 @@ export default function PayrollHub() {
             <IndianRupee size={24} />
           </div>
           <div>
-            <h2>Payroll Hub & CTC Break-up</h2>
-            <p style={{ color: '#94a3b8', fontSize: '13px' }}>Manage employee payroll dispatches or compute mathematically flawless CTC break-ups.</p>
+            <h2>Payroll Hub & Payslips Generator</h2>
+            <p style={{ color: '#94a3b8', fontSize: '13px' }}>
+              Manage employee payslip releases, UAN/ESIC permanent profiles, and encrypted PDF downloads.
+            </p>
           </div>
         </div>
 
         <div style={{ display: 'flex', gap: '8px', marginTop: '15px' }}>
-          <button
-            onClick={() => setActiveTab('payslips')}
-            className={activeTab === 'payslips' ? 'btn-primary' : 'back-btn'}
-            style={{ margin: 0, padding: '6px 14px', fontSize: '12px' }}
-          >
-            Payslips Dispatcher
-          </button>
-          <button
-            onClick={() => setActiveTab('ctcCalculator')}
-            className={activeTab === 'ctcCalculator' ? 'btn-primary' : 'back-btn'}
-            style={{ margin: 0, padding: '6px 14px', fontSize: '12px' }}
-          >
-            CTC Break-up Generator
-          </button>
+          {!isAdmin ? (
+            <button
+              onClick={() => setActiveTab('myPayslips')}
+              className={activeTab === 'myPayslips' ? 'btn-primary' : 'back-btn'}
+              style={{ margin: 0, padding: '8px 16px', fontSize: '13px' }}
+            >
+              My Released Payslips
+            </button>
+          ) : (
+            <>
+              <button
+                onClick={() => setActiveTab('payslips')}
+                className={activeTab === 'payslips' ? 'btn-primary' : 'back-btn'}
+                style={{ margin: 0, padding: '6px 14px', fontSize: '12px' }}
+              >
+                Payslips Dispatcher & UAN/ESIC Profile
+              </button>
+              <button
+                onClick={() => setActiveTab('ctcCalculator')}
+                className={activeTab === 'ctcCalculator' ? 'btn-primary' : 'back-btn'}
+                style={{ margin: 0, padding: '6px 14px', fontSize: '12px' }}
+              >
+                CTC Break-up Generator
+              </button>
+              <button
+                onClick={() => setActiveTab('myPayslips')}
+                className={activeTab === 'myPayslips' ? 'btn-primary' : 'back-btn'}
+                style={{ margin: 0, padding: '6px 14px', fontSize: '12px' }}
+              >
+                My Personal Payslips
+              </button>
+            </>
+          )}
         </div>
       </div>
 
-      {/* ── Payslips Tab ───────────────────────────────────────────── */}
-      {activeTab === 'payslips' ? (
+      {/* ── Employee Portal: My Payslips Tab ──────────────────────────────── */}
+      {activeTab === 'myPayslips' && (
+        <div style={cardStyle}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px', borderBottom: '1px solid var(--border-glass)', paddingBottom: '12px' }}>
+            <ShieldCheck size={24} style={{ color: '#10b981' }} />
+            <div>
+              <h3 style={{ fontSize: '18px', fontWeight: 'bold', margin: 0, color: 'var(--text-primary)' }}>My Password-Protected Payslips</h3>
+              <p style={{ fontSize: '12px', color: '#94a3b8', margin: '2px 0 0 0' }}>View and download your official monthly payslips securely.</p>
+            </div>
+          </div>
+
+          <div style={{ background: 'rgba(245, 158, 11, 0.08)', border: '1px solid rgba(245, 158, 11, 0.25)', padding: '14px', borderRadius: '10px', marginBottom: '20px', fontSize: '13px', color: '#f59e0b' }}>
+            <strong>🔒 Password Protection Notice:</strong><br />
+            Downloaded PDF payslips remain encrypted on your disk. To open your downloaded PDF file, enter your password:<br />
+            <span style={{ fontWeight: 'bold', color: '#fff', background: 'rgba(0,0,0,0.3)', padding: '2px 6px', borderRadius: '4px', display: 'inline-block', marginTop: '4px' }}>
+              First 4 Letters of your Name (UPPERCASE) + Year of Birth (e.g. JOHN1995)
+            </span>
+          </div>
+
+          {loadingMyPayslips ? (
+            <div style={{ textAlign: 'center', padding: '30px', color: '#94a3b8' }}>Loading your released payslips...</div>
+          ) : myPayslips.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: '40px 20px', color: '#94a3b8' }}>
+              No released payslips found for your account. When HR Admin releases your monthly payslips, they will appear here.
+            </div>
+          ) : (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '16px' }}>
+              {myPayslips.map(pr => (
+                <div key={pr.id} style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-glass)', borderRadius: '12px', padding: '18px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+                  <div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                      <span style={{ fontSize: '14px', fontWeight: 'bold', color: '#3b82f6' }}>{pr.pay_period}</span>
+                      <span style={{ fontSize: '10px', background: 'rgba(16, 185, 129, 0.1)', color: '#10b981', padding: '2px 8px', borderRadius: '12px', fontWeight: '700' }}>RELEASED</span>
+                    </div>
+                    <div style={{ fontSize: '12px', color: '#94a3b8', marginBottom: '6px' }}>Net Salary in Hand:</div>
+                    <div style={{ fontSize: '22px', fontWeight: '800', color: '#10b981', marginBottom: '14px' }}>
+                      ₹{Number(pr.net_salary || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => handleDownloadPayslip(pr.id, pr.pay_period)}
+                    style={{
+                      width: '100%',
+                      padding: '10px',
+                      borderRadius: '8px',
+                      border: 'none',
+                      background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                      color: '#fff',
+                      fontWeight: '700',
+                      fontSize: '13px',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '6px'
+                    }}
+                  >
+                    <Download size={16} />
+                    Download Password PDF
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── Payslips Tab (Admin Management) ─────────────────────────────────── */}
+      {activeTab === 'payslips' && isAdmin && (
         <div className="grid-1-2">
           <div>
+            {/* CSV Import Box */}
             <div style={cardStyle}>
               <h3 style={{ marginBottom: '15px' }}>Upload Payroll Document</h3>
               <div className="upload-zone" onClick={triggerFileSelect}>
@@ -448,66 +579,169 @@ export default function PayrollHub() {
               <input
                 type="file"
                 ref={fileInputRef}
-                style={{ display: 'none' }}
-                accept=".csv, .xlsx, .xls, .ods"
                 onChange={handleFileUpload}
-                disabled={loading}
+                accept=".csv, .xlsx, .xls, .ods"
+                style={{ display: 'none' }}
               />
               {uploadStatus && (
-                <div style={{ marginTop: '15px', padding: '10px', background: 'rgba(255,255,255,0.04)', borderRadius: '8px', fontSize: '13px', borderLeft: '3px solid #10b981' }}>
+                <div style={{ marginTop: '12px', fontSize: '12px', color: uploadStatus.includes('failed') ? '#ef4444' : '#10b981' }}>
                   {uploadStatus}
                 </div>
               )}
             </div>
+
+            {/* Permanent Employee UAN/ESIC Metadata Entry Box */}
             <div style={cardStyle}>
-              <h4 style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px', color: '#fbbf24' }}>
-                <AlertTriangle size={16} /> AES-256 PDF Security Info
-              </h4>
-              <p style={{ fontSize: '13px', color: '#94a3b8', lineHeight: '1.5' }}>
-                All payslips are compiled dynamically. Before delivery, they are encrypted with 256-bit AES.
-                The default password key for employees is <strong>their employee email ID</strong> (e.g. <code>alice@acme.com</code>).
+              <h3 style={{ fontSize: '16px', fontWeight: 'bold', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <User size={18} style={{ color: '#3b82f6' }} />
+                Employee Permanent UAN & ESIC Profile
+              </h3>
+              <p style={{ fontSize: '12px', color: '#94a3b8', marginBottom: '14px' }}>
+                Enter UAN & ESIC numbers once per employee. They will persist permanently and auto-fetch for all future monthly payslips.
               </p>
+
+              <div style={{ marginBottom: '12px' }}>
+                <label style={labelStyle}>Select Department</label>
+                <select value={selectedDept} onChange={(e) => handleDeptChange(e.target.value)} style={selectStyle}>
+                  <option value="">-- All Departments --</option>
+                  {departments.map(d => (
+                    <option key={d} value={d} style={{ background: 'var(--bg-card)', color: 'var(--text-primary)' }}>{d}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div style={{ marginBottom: '14px' }}>
+                <label style={labelStyle}>Select Employee</label>
+                <select value={selectedEmpId} onChange={(e) => handleEmpChange(e.target.value)} style={selectStyle}>
+                  <option value="">-- Select Employee --</option>
+                  {(selectedDept ? filteredEmployees : allEmployees).map(emp => (
+                    <option key={emp._id || emp.id} value={emp._id || emp.id} style={{ background: 'var(--bg-card)', color: 'var(--text-primary)' }}>
+                      {emp.name} ({emp.department || 'General'})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {selectedEmployee && (
+                <div style={{ background: 'rgba(59, 130, 246, 0.05)', border: '1px solid rgba(59, 130, 246, 0.2)', padding: '14px', borderRadius: '10px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                  <div>
+                    <label style={{ fontSize: '11px', fontWeight: 'bold', color: '#3b82f6', marginBottom: '4px', display: 'block' }}>UAN No. (Permanent)</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. 100987654321"
+                      value={uanNo}
+                      onChange={(e) => setUanNo(e.target.value)}
+                      style={inputStyle}
+                    />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: '11px', fontWeight: 'bold', color: '#3b82f6', marginBottom: '4px', display: 'block' }}>ESIC No. (Permanent)</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. 3123456789"
+                      value={esicNo}
+                      onChange={(e) => setEsicNo(e.target.value)}
+                      style={inputStyle}
+                    />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: '11px', fontWeight: 'bold', color: '#3b82f6', marginBottom: '4px', display: 'block' }}>Personal Email ID (For Payslip Email Release)</label>
+                    <input
+                      type="email"
+                      placeholder="e.g. employee.personal@gmail.com"
+                      value={personalEmail}
+                      onChange={(e) => setPersonalEmail(e.target.value)}
+                      style={inputStyle}
+                    />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: '11px', fontWeight: 'bold', color: '#3b82f6', marginBottom: '4px', display: 'block' }}>Date of Birth / Birthday (For Password Generation)</label>
+                    <input
+                      type="date"
+                      value={birthdayDate}
+                      onChange={(e) => setBirthdayDate(e.target.value)}
+                      style={inputStyle}
+                    />
+                  </div>
+
+                  {metaSaveMsg && (
+                    <div style={{ fontSize: '12px', color: metaSaveMsg.includes('Failed') ? '#ef4444' : '#10b981', fontWeight: '600' }}>
+                      {metaSaveMsg}
+                    </div>
+                  )}
+
+                  <button
+                    onClick={handleSaveEmployeeMeta}
+                    disabled={savingMeta}
+                    style={{
+                      padding: '10px',
+                      borderRadius: '8px',
+                      border: 'none',
+                      background: '#3b82f6',
+                      color: '#fff',
+                      fontWeight: 'bold',
+                      fontSize: '13px',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '6px',
+                      marginTop: '4px'
+                    }}
+                  >
+                    <Save size={16} />
+                    {savingMeta ? 'Saving Metadata...' : 'Save Profile Metadata Permanently'}
+                  </button>
+                </div>
+              )}
             </div>
           </div>
-          <div>
-            <h3 style={{ marginBottom: '15px' }}>Generated Payslips & Dispatch Log</h3>
+
+          {/* Payslips Dispatch List */}
+          <div style={cardStyle}>
+            <h3 style={{ marginBottom: '15px' }}>Monthly Payslip Dispatches</h3>
             {payrolls.length === 0 ? (
-              <div style={{ padding: '40px', background: 'rgba(255,255,255,0.02)', borderRadius: '16px', border: '1px solid var(--border-glass)', textAlign: 'center', color: '#64748b' }}>
-                No payslip records generated yet. Upload a CSV file to begin.
-              </div>
+              <p style={{ color: '#94a3b8', fontSize: '13px', textAlign: 'center', padding: '30px 0' }}>
+                No payroll records found. Import a CSV or calculate CTC above to generate records.
+              </p>
             ) : (
-              <div className="data-table-wrapper">
+              <div style={{ overflowX: 'auto' }}>
                 <table className="data-table">
                   <thead>
                     <tr>
-                      <th>Period</th><th>Employee</th><th>Net Salary</th><th>Status</th><th>Action</th>
+                      <th>Employee</th>
+                      <th>Pay Period</th>
+                      <th>Gross Salary</th>
+                      <th>Net Salary</th>
+                      <th>Status</th>
+                      <th>Action</th>
                     </tr>
                   </thead>
                   <tbody>
                     {payrolls.map(pr => (
                       <tr key={pr.id}>
-                        <td>{pr.pay_period}</td>
                         <td>
-                          <div style={{ fontWeight: '500' }}>{pr.employee?.name}</div>
-                          <div style={{ fontSize: '11px', color: '#64748b' }}>{pr.employee?.email}</div>
+                          <div style={{ fontWeight: '600' }}>{pr.employee?.name || 'N/A'}</div>
+                          <div style={{ fontSize: '11px', color: '#94a3b8' }}>{pr.employee?.email}</div>
                         </td>
-                        <td>₹{pr.net_salary?.toFixed(2)}</td>
-                        <td><span className={`status-pill ${pr.status.toLowerCase()}`}>{pr.status}</span></td>
+                        <td>{pr.pay_period}</td>
+                        <td>₹{Number((pr.base_salary || 0) + (pr.allowances || 0)).toLocaleString('en-IN')}</td>
+                        <td style={{ color: '#10b981', fontWeight: '700' }}>₹{Number(pr.net_salary || 0).toLocaleString('en-IN')}</td>
                         <td>
-                          {pr.status === 'SENT' ? (
-                            <span style={{ color: '#10b981', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '12px' }}>
-                              <Check size={14} /> Sent
-                            </span>
-                          ) : (
-                            <button
-                              className="btn-primary"
-                              style={{ padding: '6px 12px', fontSize: '12px' }}
-                              onClick={() => handleEmailPayslip(pr.id)}
-                              disabled={emailStatus[pr.id] === 'sending'}
-                            >
-                              <Mail size={12} /> {emailStatus[pr.id] === 'sending' ? 'Sending...' : 'Email Encrypted PDF'}
-                            </button>
-                          )}
+                          <span className={`status-badge ${pr.status === 'SENT' ? 'status-active' : 'status-pending'}`}>
+                            {pr.status}
+                          </span>
+                        </td>
+                        <td>
+                          <button
+                            onClick={() => handleEmailPayslip(pr.id, pr.employee?.name)}
+                            disabled={emailStatus[pr.id] === 'sending'}
+                            className="btn-primary"
+                            style={{ padding: '6px 12px', fontSize: '11px', margin: 0, display: 'flex', alignItems: 'center', gap: '4px' }}
+                          >
+                            <Mail size={12} />
+                            {emailStatus[pr.id] === 'sending' ? 'Sending...' : pr.status === 'SENT' ? 'Resend Encrypted Email' : 'Release Encrypted Email'}
+                          </button>
                         </td>
                       </tr>
                     ))}
@@ -517,221 +751,94 @@ export default function PayrollHub() {
             )}
           </div>
         </div>
+      )}
 
-      ) : (
-        /* ── CTC Calculator Tab ─────────────────────────────────────── */
+      {/* ── CTC Calculator Tab ────────────────────────────────────────────── */}
+      {activeTab === 'ctcCalculator' && isAdmin && (
         <div>
-          {/* Employee Lookup Panel */}
-          <div style={{ ...cardStyle, borderColor: 'rgba(16,185,129,0.2)' }}>
-            <h3 style={{ marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <User size={16} style={{ color: '#10b981' }} /> Employee Lookup
-            </h3>
-            <p style={{ color: '#64748b', fontSize: '12px', marginBottom: '18px' }}>
-              Select department and employee to auto-fill the details card.
-            </p>
-
-            <div className="grid-cols-2">
-              {/* Department dropdown */}
+          <div style={cardStyle}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
               <div>
-                <label style={labelStyle}>Department</label>
-                <div style={{ position: 'relative' }}>
-                  <select
-                    value={selectedDept}
-                    onChange={e => handleDeptChange(e.target.value)}
-                    style={selectStyle}
-                  >
-                    <option value="">— Select Department —</option>
-                    {departments.map(d => <option key={d} value={d}>{d}</option>)}
-                  </select>
-                  <ChevronDown size={14} style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', color: '#64748b', pointerEvents: 'none' }} />
-                </div>
+                <label style={labelStyle}>Filter by Department</label>
+                <select value={selectedDept} onChange={(e) => handleDeptChange(e.target.value)} style={selectStyle}>
+                  <option value="">-- All Departments --</option>
+                  {departments.map(d => (
+                    <option key={d} value={d} style={{ background: 'var(--bg-card)', color: 'var(--text-primary)' }}>{d}</option>
+                  ))}
+                </select>
               </div>
 
-              {/* Employee dropdown */}
               <div>
-                <label style={labelStyle}>Employee Name</label>
-                <div style={{ position: 'relative' }}>
-                  <select
-                    value={selectedEmpId}
-                    onChange={e => handleEmpChange(e.target.value)}
-                    style={{ ...selectStyle, opacity: selectedDept ? 1 : 0.45, cursor: selectedDept ? 'pointer' : 'not-allowed' }}
-                    disabled={!selectedDept}
-                  >
-                    <option value="">— Select Employee —</option>
-                    {filteredEmployees.map(e => {
-                      const id = String(e._id || e.id || e.employee_code || '');
-                      return <option key={id} value={id}>{e.name || e.full_name}</option>;
-                    })}
-                  </select>
-                  <ChevronDown size={14} style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', color: '#64748b', pointerEvents: 'none' }} />
-                </div>
+                <label style={labelStyle}>Select Target Employee</label>
+                <select value={selectedEmpId} onChange={(e) => handleEmpChange(e.target.value)} style={selectStyle}>
+                  <option value="">-- Select Employee --</option>
+                  {(selectedDept ? filteredEmployees : allEmployees).map(emp => (
+                    <option key={emp._id || emp.id} value={emp._id || emp.id} style={{ background: 'var(--bg-card)', color: 'var(--text-primary)' }}>
+                      {emp.name} ({emp.department || 'General'})
+                    </option>
+                  ))}
+                </select>
               </div>
             </div>
 
-            {/* Employee Info Card */}
-            {selectedEmployee && (
-              <div className="payroll-emp-card">
-                <div style={empFieldStyle}>
-                  <span style={{ ...labelStyle, marginBottom: 0, color: '#64748b' }}>Name</span>
-                  <span style={{ fontWeight: '600', fontSize: '14px' }}>{selectedEmployee.name || selectedEmployee.full_name || '—'}</span>
-                </div>
-                <div style={empFieldStyle}>
-                  <span style={{ ...labelStyle, marginBottom: 0, color: '#64748b' }}>Employee ID</span>
-                  <span style={{ fontWeight: '600', fontSize: '14px', color: '#10b981', fontFamily: 'monospace' }}>{selectedEmployee.employee_code || selectedEmployee.emp_id || '—'}</span>
-                </div>
-                <div style={empFieldStyle}>
-                  <span style={{ ...labelStyle, marginBottom: 0, color: '#64748b' }}>Department</span>
-                  <span style={{ fontSize: '13px', display: 'flex', alignItems: 'center', gap: '5px' }}>
-                    <Building2 size={12} style={{ color: '#6366f1' }} />
-                    {selectedEmployee.department || selectedDept || '—'}
-                  </span>
-                </div>
-                <div style={empFieldStyle}>
-                  <span style={{ ...labelStyle, marginBottom: 0, color: '#64748b' }}>Designation</span>
-                  <span style={{ fontSize: '13px', display: 'flex', alignItems: 'center', gap: '5px' }}>
-                    <BadgeCheck size={12} style={{ color: '#f59e0b' }} />
-                    {selectedEmployee.designation || selectedEmployee.job_title || selectedEmployee.position || '—'}
-                  </span>
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* CTC Input Panel */}
-          <div style={cardStyle}>
-            <h3 style={{ marginBottom: '6px' }}>Statutory Salary CTC Calculator</h3>
-            <p style={{ color: '#94a3b8', fontSize: '13px', marginBottom: '20px' }}>
-              Input target monthly numbers to output a mathematically flawless CTC break-up sheet.
-            </p>
-
-            <div style={{ display: 'flex', gap: '20px', alignItems: 'flex-end', flexWrap: 'wrap' }}>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                <label style={labelStyle}>Input Target Component</label>
-                <div style={{ position: 'relative' }}>
-                  <select
-                    value={calcInputType}
-                    onChange={e => setCalcInputType(e.target.value)}
-                    style={{ ...selectStyle, minWidth: '200px', width: 'auto' }}
-                  >
-                    <option value="gross">Target Monthly Gross Salary</option>
-                    <option value="net">Target Monthly Net Take Home</option>
-                  </select>
-                  <ChevronDown size={14} style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', color: '#64748b', pointerEvents: 'none' }} />
-                </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '15px', marginTop: '15px' }}>
+              <div>
+                <label style={labelStyle}>Input Type</label>
+                <select value={calcInputType} onChange={(e) => setCalcInputType(e.target.value)} style={selectStyle}>
+                  <option value="gross" style={{ background: 'var(--bg-card)', color: 'var(--text-primary)' }}>Final Gross Salary</option>
+                  <option value="net" style={{ background: 'var(--bg-card)', color: 'var(--text-primary)' }}>Net Take-Home Salary</option>
+                </select>
               </div>
 
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                <label style={labelStyle}>Target Monthly Value (INR)</label>
+              <div>
+                <label style={labelStyle}>Monthly Amount (₹)</label>
                 <input
                   type="number"
+                  placeholder="e.g. 25000"
                   value={calcAmount}
-                  onChange={e => setCalcAmount(e.target.value)}
-                  placeholder="e.g. 32000"
-                  style={{
-                    background: 'var(--bg-card)',
-                    border: '1px solid var(--border-glass)',
-                    color: 'var(--text-primary)',
-                    padding: '9px 12px',
-                    borderRadius: '10px',
-                    width: '180px',
-                    fontSize: '13px',
-                    outline: 'none',
-                  }}
+                  onChange={(e) => setCalcAmount(e.target.value)}
+                  style={inputStyle}
                 />
               </div>
 
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                <label style={labelStyle}>Professional Tax Option</label>
-                <div style={{ position: 'relative' }}>
-                  <select
-                    value={ptType}
-                    onChange={e => setPtType(e.target.value)}
-                    style={{ ...selectStyle, minWidth: '200px', width: 'auto' }}
-                  >
-                    <option value="standard">Standard (₹200 / Month)</option>
-                    <option value="yearly2500_feb">₹2500 Yearly (Feb/March ₹300, others ₹200)</option>
-                  </select>
-                  <ChevronDown size={14} style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', color: '#64748b', pointerEvents: 'none' }} />
-                </div>
+              <div>
+                <label style={labelStyle}>Pay Month</label>
+                <select value={calcMonth} onChange={(e) => setCalcMonth(e.target.value)} style={selectStyle}>
+                  {['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'].map(m => (
+                    <option key={m} value={m} style={{ background: 'var(--bg-card)', color: 'var(--text-primary)' }}>{m}</option>
+                  ))}
+                </select>
               </div>
-
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                <label style={labelStyle}>Calculation Month</label>
-                <div style={{ position: 'relative' }}>
-                  <select
-                    value={calcMonth}
-                    onChange={e => setCalcMonth(e.target.value)}
-                    style={{ ...selectStyle, minWidth: '150px', width: 'auto' }}
-                  >
-                    <option value="April">April</option>
-                    <option value="May">May</option>
-                    <option value="June">June</option>
-                    <option value="July">July</option>
-                    <option value="August">August</option>
-                    <option value="September">September</option>
-                    <option value="October">October</option>
-                    <option value="November">November</option>
-                    <option value="December">December</option>
-                    <option value="January">January</option>
-                    <option value="February">February</option>
-                    <option value="March">March</option>
-                  </select>
-                  <ChevronDown size={14} style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', color: '#64748b', pointerEvents: 'none' }} />
-                </div>
-              </div>
-
-              <button
-                className="btn-primary"
-                onClick={handleCalculateCTC}
-                style={{ margin: 0, padding: '10px 22px', height: '40px', alignSelf: 'flex-end' }}
-              >
-                Compute Breakdown
-              </button>
             </div>
+
+            <button
+              onClick={handleCalculateCTC}
+              className="btn-primary"
+              style={{ marginTop: '15px', width: '100%', padding: '12px', fontSize: '14px', fontWeight: 'bold' }}
+            >
+              Calculate Mathematically Flawless CTC Break-up
+            </button>
           </div>
 
-          {/* Results */}
+          {/* CTC Results Breakdown */}
           {calcResult && (
             <div style={cardStyle}>
-              {/* Header row: title + export buttons */}
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '18px', flexWrap: 'wrap', gap: '12px' }}>
-                <h4 style={{ fontSize: '15px', fontWeight: '700', margin: 0 }}>Calculation Breakdown Results</h4>
-                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                  <button
-                    style={exportBtnStyle('#ef4444')}
-                    onClick={() => handleExport('pdf')}
-                    disabled={exportLoading.pdf}
-                  >
-                    <FileText size={13} />
-                    {exportLoading.pdf ? 'Generating…' : 'Export PDF'}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
+                <h3 style={{ fontSize: '16px', fontWeight: 'bold', margin: 0 }}>CTC Break-up Results</h3>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <button onClick={() => handleExportCTC('pdf')} style={exportBtnStyle('#ef4444')}>
+                    <Download size={14} /> PDF
                   </button>
-                  <button
-                    style={exportBtnStyle('#10b981')}
-                    onClick={() => handleExport('excel')}
-                    disabled={exportLoading.excel}
-                  >
-                    <Table2 size={13} />
-                    {exportLoading.excel ? 'Generating…' : 'Export Excel'}
+                  <button onClick={() => handleExportCTC('excel')} style={exportBtnStyle('#10b981')}>
+                    <Download size={14} /> Excel
                   </button>
-                  <button
-                    style={exportBtnStyle('#3b82f6')}
-                    onClick={() => handleExport('word')}
-                    disabled={exportLoading.word}
-                  >
-                    <Download size={13} />
-                    {exportLoading.word ? 'Generating…' : 'Export Word'}
-                  </button>
-                  <button
-                    className="back-btn"
-                    onClick={handleCopyMarkdown}
-                    style={{ margin: 0, padding: '9px 14px', fontSize: '12px' }}
-                  >
-                    Copy Markdown
+                  <button onClick={() => handleExportCTC('word')} style={exportBtnStyle('#3b82f6')}>
+                    <Download size={14} /> Word
                   </button>
                 </div>
               </div>
 
-              <div className="data-table-wrapper" style={{ maxHeight: 'none' }}>
+              <div style={{ overflowX: 'auto' }}>
                 <table className="data-table">
                   <thead>
                     <tr>
@@ -741,124 +848,14 @@ export default function PayrollHub() {
                     </tr>
                   </thead>
                   <tbody>
-                    {(() => {
-                      const f = (val) => val.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-                      return (
-                        <>
-                          {/* Component heading */}
-                          <tr style={{ background: 'rgba(16,185,129,0.13)' }}>
-                            <td colSpan="3" style={{ fontWeight: 'bold', color: '#064e3b' }}>Component</td>
-                          </tr>
-                          <tr>
-                            <td><strong>Basic Salary</strong> (50% of Gross)</td>
-                            <td style={{ textAlign: 'right' }}>₹{f(calcResult.basic)}</td>
-                            <td style={{ textAlign: 'right' }}>₹{f(calcResult.basic * 12)}</td>
-                          </tr>
-                          <tr>
-                            <td><strong>HRA</strong> (40% of Basic)</td>
-                            <td style={{ textAlign: 'right' }}>₹{f(calcResult.hra)}</td>
-                            <td style={{ textAlign: 'right' }}>₹{f(calcResult.hra * 12)}</td>
-                          </tr>
-                          <tr>
-                            <td><strong>Conveyance Allowance</strong></td>
-                            <td style={{ textAlign: 'right' }}>₹{f(calcResult.conveyance)}</td>
-                            <td style={{ textAlign: 'right' }}>₹{f(calcResult.conveyance * 12)}</td>
-                          </tr>
-                          <tr>
-                            <td><strong>Education Allowance</strong></td>
-                            <td style={{ textAlign: 'right' }}>₹{f(calcResult.education)}</td>
-                            <td style={{ textAlign: 'right' }}>₹{f(calcResult.education * 12)}</td>
-                          </tr>
-                          <tr>
-                            <td><strong>Medical Allowance</strong></td>
-                            <td style={{ textAlign: 'right' }}>₹{f(calcResult.medical)}</td>
-                            <td style={{ textAlign: 'right' }}>₹{f(calcResult.medical * 12)}</td>
-                          </tr>
-                          <tr>
-                            <td><strong>Special Allowance</strong></td>
-                            <td style={{ textAlign: 'right' }}>₹{f(calcResult.special)}</td>
-                            <td style={{ textAlign: 'right' }}>₹{f(calcResult.special * 12)}</td>
-                          </tr>
-                          <tr style={{ background: 'rgba(16,185,129,0.09)' }}>
-                            <td><strong>Gross Salary</strong></td>
-                            <td style={{ textAlign: 'right' }}>₹{f(calcResult.gross)}</td>
-                            <td style={{ textAlign: 'right' }}>₹{f(calcResult.gross * 12)}</td>
-                          </tr>
-                          <tr>
-                            <td><strong>Statutory Bonus</strong> (8.33% of Basic)</td>
-                            <td style={{ textAlign: 'right' }}>₹{f(calcResult.bonus)}</td>
-                            <td style={{ textAlign: 'right' }}>₹{f(calcResult.bonus * 12)}</td>
-                          </tr>
-                          <tr style={{ background: 'rgba(255,255,255,0.03)' }}>
-                            <td><strong>Final Gross Salary</strong></td>
-                            <td style={{ textAlign: 'right' }}>₹{f(calcResult.finalGross)}</td>
-                            <td style={{ textAlign: 'right' }}>₹{f(calcResult.finalGross * 12)}</td>
-                          </tr>
-
-                          {/* Employee Deductions heading */}
-                          <tr style={{ background: 'rgba(249,115,22,0.15)', color: '#c2410c' }}>
-                            <td colSpan="3" style={{ fontWeight: 'bold' }}>Employee Deductions</td>
-                          </tr>
-                          <tr>
-                            <td style={{ paddingLeft: '20px' }}>- PF (Employee 12%, Max base ₹15,000)</td>
-                            <td style={{ textAlign: 'right' }}>₹{f(calcResult.employeePF)}</td>
-                            <td style={{ textAlign: 'right' }}>₹{f(calcResult.employeePF * 12)}</td>
-                          </tr>
-                          <tr>
-                            <td style={{ paddingLeft: '20px' }}>- ESIC (Employee 0.75% if Final Gross ≤ ₹21,000)</td>
-                            <td style={{ textAlign: 'right' }}>₹{f(calcResult.employeeESIC)}</td>
-                            <td style={{ textAlign: 'right' }}>₹{f(calcResult.employeeESIC * 12)}</td>
-                          </tr>
-                          <tr>
-                            <td style={{ paddingLeft: '20px' }}>- Professional Tax (PT)</td>
-                            <td style={{ textAlign: 'right' }}>₹{f(calcResult.pt)}</td>
-                            <td style={{ textAlign: 'right' }}>₹{f(calcResult.pt_yearly)}</td>
-                          </tr>
-                          <tr style={{ background: 'rgba(255,255,255,0.02)' }}>
-                            <td><strong>Total Deductions</strong></td>
-                            <td style={{ textAlign: 'right' }}>₹{f(calcResult.totalDeductions)}</td>
-                            <td style={{ textAlign: 'right' }}>₹{f((calcResult.employeePF * 12) + (calcResult.employeeESIC * 12) + calcResult.pt_yearly)}</td>
-                          </tr>
-                          <tr>
-                            <td><strong>Net Take Home Salary</strong></td>
-                            <td style={{ textAlign: 'right', fontWeight: 'bold', color: '#cca43b' }}>₹{f(calcResult.netTakeHome)}</td>
-                            <td style={{ textAlign: 'right', fontWeight: 'bold', color: '#cca43b' }}>₹{f((calcResult.finalGross * 12) - ((calcResult.employeePF * 12) + (calcResult.employeeESIC * 12) + calcResult.pt_yearly))}</td>
-                          </tr>
-
-                          {/* Employer Contributions heading */}
-                          <tr style={{ background: 'rgba(59,130,246,0.15)', color: '#1d4ed8' }}>
-                            <td colSpan="3" style={{ fontWeight: 'bold' }}>Employer Contributions and Cost</td>
-                          </tr>
-                          <tr>
-                            <td style={{ paddingLeft: '20px' }}>- PF (Employer Contribution)</td>
-                            <td style={{ textAlign: 'right' }}>₹{f(calcResult.employerPF)}</td>
-                            <td style={{ textAlign: 'right' }}>₹{f(calcResult.employerPF * 12)}</td>
-                          </tr>
-                          <tr>
-                            <td style={{ paddingLeft: '20px' }}>- ESIC (Employer 3.25% if Final Gross ≤ ₹21,000)</td>
-                            <td style={{ textAlign: 'right' }}>₹{f(calcResult.employerESIC)}</td>
-                            <td style={{ textAlign: 'right' }}>₹{f(calcResult.employerESIC * 12)}</td>
-                          </tr>
-                          <tr>
-                            <td style={{ paddingLeft: '20px' }}>- Gratuity (4.81% of Basic)</td>
-                            <td style={{ textAlign: 'right' }}>₹{f(calcResult.gratuity)}</td>
-                            <td style={{ textAlign: 'right' }}>₹{f(calcResult.gratuity * 12)}</td>
-                          </tr>
-                          <tr>
-                            <td style={{ paddingLeft: '20px' }}>- Others (Insurance, Admin Overhead)</td>
-                            <td style={{ textAlign: 'right' }}>₹{f(calcResult.others)}</td>
-                            <td style={{ textAlign: 'right' }}>₹{f(calcResult.others * 12)}</td>
-                          </tr>
-
-                          {/* Total CTC */}
-                          <tr style={{ background: 'linear-gradient(135deg, rgba(99,102,241,0.18), rgba(168,85,247,0.18))', border: '1px solid rgba(168,85,247,0.3)' }}>
-                            <td><strong style={{ fontWeight: 'bold', color: '#10b981', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Total CTC of Employee</strong></td>
-                            <td style={{ textAlign: 'right', fontWeight: 'bold', color: '#10b981' }}>₹{f(calcResult.totalCTC)}</td>
-                            <td style={{ textAlign: 'right', fontWeight: 'bold', color: '#10b981' }}>₹{f(calcResult.totalCTC * 12)}</td>
-                          </tr>
-                        </>
-                      );
-                    })()}
+                    <tr><td>Basic Salary (50% Gross)</td><td style={{ textAlign: 'right' }}>₹{calcResult.basic.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td><td style={{ textAlign: 'right' }}>₹{(calcResult.basic * 12).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td></tr>
+                    <tr><td>HRA (40% Basic)</td><td style={{ textAlign: 'right' }}>₹{calcResult.hra.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td><td style={{ textAlign: 'right' }}>₹{(calcResult.hra * 12).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td></tr>
+                    <tr><td>Conveyance Allowance</td><td style={{ textAlign: 'right' }}>₹{calcResult.conveyance.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td><td style={{ textAlign: 'right' }}>₹{(calcResult.conveyance * 12).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td></tr>
+                    <tr><td>Special Allowance</td><td style={{ textAlign: 'right' }}>₹{calcResult.special.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td><td style={{ textAlign: 'right' }}>₹{(calcResult.special * 12).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td></tr>
+                    <tr style={{ background: 'rgba(16, 185, 129, 0.05)', fontWeight: 'bold' }}><td>Gross Salary</td><td style={{ textAlign: 'right', color: '#10b981' }}>₹{calcResult.gross.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td><td style={{ textAlign: 'right', color: '#10b981' }}>₹{(calcResult.gross * 12).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td></tr>
+                    <tr><td>Employee PF (12%)</td><td style={{ textAlign: 'right' }}>₹{calcResult.employeePF.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td><td style={{ textAlign: 'right' }}>₹{(calcResult.employeePF * 12).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td></tr>
+                    <tr><td>Professional Tax (PT)</td><td style={{ textAlign: 'right' }}>₹{calcResult.pt.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td><td style={{ textAlign: 'right' }}>₹{calcResult.pt_yearly.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td></tr>
+                    <tr style={{ background: 'rgba(59, 130, 246, 0.08)', fontWeight: 'bold' }}><td>Net Take Home Salary</td><td style={{ textAlign: 'right', color: '#3b82f6' }}>₹{calcResult.netTakeHome.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td><td style={{ textAlign: 'right', color: '#3b82f6' }}>₹{((calcResult.finalGross * 12) - ((calcResult.employeePF * 12) + (calcResult.employeeESIC * 12) + calcResult.pt_yearly)).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td></tr>
                   </tbody>
                 </table>
               </div>
@@ -866,6 +863,7 @@ export default function PayrollHub() {
           )}
         </div>
       )}
+
       <ConfirmModal {...confirmConfig} />
     </div>
   );
