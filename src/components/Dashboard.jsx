@@ -11,6 +11,7 @@ import {
 const EMPLOYEE_TILES = [
   { id: 'myInfo', name: 'My Information', icon: User, color: '#3b82f6', desc: 'View and update your personal profile details' },
   { id: 'attendance', name: 'Attendance', icon: Clock, color: '#10b981', desc: 'Track daily attendance and check-ins' },
+  { id: 'payroll', name: 'My Payslips', icon: IndianRupee, color: '#10b981', desc: 'View and download password-protected monthly payslips' },
   { id: 'lmsClub', name: 'LMS & Club', icon: BookOpen, color: '#f59e0b', desc: 'E-library and discussion groups' },
   { id: 'eventPlanner', name: 'Event Planner', icon: Calendar, color: '#ec4899', desc: 'Reminders queue & calendar' },
   { id: 'assetManager', name: 'Asset Manager', icon: Cpu, color: '#06b6d4', desc: 'View your checked-out hardware and return due dates' },

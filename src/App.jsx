@@ -60,7 +60,7 @@ export default function App() {
   // Secure Layout/Routing Wrapper: protect Admin modules from regular employees
   useEffect(() => {
     if (activeModule && currentRole === 'Employee') {
-      const adminOnlyModules = ['directory', 'celebrations', 'payroll', 'dailyPulse', 'surpriseOps'];
+      const adminOnlyModules = ['directory', 'celebrations', 'dailyPulse', 'surpriseOps'];
       if (adminOnlyModules.includes(activeModule)) {
         window.customAlert('Access Denied: You do not have authorization to view this admin panel.', 'Authorization Error');
         setActiveModule(null);
