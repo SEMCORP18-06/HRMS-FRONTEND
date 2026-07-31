@@ -262,12 +262,28 @@ export default function EmployeeDirectory() {
     e.preventDefault();
     if (!editingEmployee || !editingEmployee.name) return;
 
+    // Detect if a company email is being provisioned for a PENDING onboarding employee
+    const isProvisioningCompanyEmail =
+      editingEmployee.status === 'PENDING' &&
+      editingEmployee.email &&
+      editingEmployee.email.trim() !== '';
+
+    const title = isProvisioningCompanyEmail
+      ? 'Provision Company Email & Notify Employee'
+      : 'Save Profile Changes';
+    const message = isProvisioningCompanyEmail
+      ? `You are provisioning the company email "${editingEmployee.email}" for ${editingEmployee.name}.\n\nA welcome email with portal login details will be sent to this address. Do you want to proceed?`
+      : `Are you sure you want to save updated profile information for ${editingEmployee.name}?`;
+    const confirmText = isProvisioningCompanyEmail
+      ? 'Send Welcome Email & Save'
+      : 'Save Changes';
+
     setConfirmConfig({
       isOpen: true,
-      title: 'Save Profile Changes',
-      message: `Are you sure you want to save updated profile information for ${editingEmployee.name}?`,
-      confirmText: 'Save Changes',
-      type: 'info',
+      title,
+      message,
+      confirmText,
+      type: isProvisioningCompanyEmail ? 'warning' : 'info',
       onConfirm: async () => {
         closeConfirm();
         setLoading(true);
@@ -288,7 +304,11 @@ export default function EmployeeDirectory() {
             office_contact: editingEmployee.office_contact,
             personal_contact: editingEmployee.personal_contact
           });
-          setStatus(`Employee profile updated for ${editingEmployee.name}.`);
+          if (isProvisioningCompanyEmail) {
+            setStatus(`Company email provisioned for ${editingEmployee.name}. Welcome email sent to ${editingEmployee.email}.`);
+          } else {
+            setStatus(`Employee profile updated for ${editingEmployee.name}.`);
+          }
           setEditingEmployee(null);
           fetchEmployees();
         } catch (err) {
