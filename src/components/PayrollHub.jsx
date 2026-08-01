@@ -803,6 +803,12 @@ Note: The attached PDF will be encrypted using Option 2 password standard (First
                   </div>
                 </div>
               )}
+
+              {!selectedEmployee && (
+                <div style={{ padding: '16px', borderRadius: '10px', background: 'rgba(59, 130, 246, 0.04)', border: '1px dashed rgba(59, 130, 246, 0.3)', color: '#3b82f6', fontSize: '13px', lineHeight: '1.5' }}>
+                  👈 <strong>Select an employee from the dropdown above</strong> to view, save, or update their permanent Gross Salary, UAN, ESIC numbers, and generate monthly payslips.
+                </div>
+              )}
             </div>
           </div>
 
@@ -945,7 +951,28 @@ Note: The attached PDF will be encrypted using Option 2 password standard (First
             <div style={cardStyle}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
                 <h3 style={{ fontSize: '16px', fontWeight: 'bold', margin: 0 }}>CTC Break-up Results</h3>
-                <div style={{ display: 'flex', gap: '8px' }}>
+                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                  {selectedEmployee && (
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        setGrossSalary(calcResult.finalGross);
+                        setSavingMeta(true);
+                        try {
+                          await api.payroll.updateMeta(selectedEmpId, { gross_salary: calcResult.finalGross });
+                          alert(`Successfully saved Gross Salary ₹${safeFmt(calcResult.finalGross)} to ${selectedEmployee.name}'s profile permanently!`);
+                          fetchEmployees();
+                        } catch (err) {
+                          alert(`Failed to save: ${err.message}`);
+                        } finally {
+                          setSavingMeta(false);
+                        }
+                      }}
+                      style={exportBtnStyle('#8b5cf6')}
+                    >
+                      <Save size={14} /> Save Gross (₹{safeFmt(calcResult.finalGross)}) to Profile
+                    </button>
+                  )}
                   <button type="button" onClick={() => handleExportCTC('pdf')} style={exportBtnStyle('#ef4444')}>
                     <Download size={14} /> PDF
                   </button>
