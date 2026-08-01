@@ -139,6 +139,7 @@ export const api = {
     list: () => request('/payroll'),
     email: (payrollId) => request(`/payroll/${payrollId}/email`, { method: 'POST' }),
     updateMeta: (empId, data) => request(`/employees/${empId}/payroll-meta`, { method: 'POST', body: data }),
+    generate: (data) => request('/payroll/generate', { method: 'POST', body: data }),
     getMyPayslips: () => request('/payroll/my-payslips'),
     downloadUrl: (payrollId) => `${BASE_URL}/payroll/download/${payrollId}`
   },

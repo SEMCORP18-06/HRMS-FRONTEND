@@ -44,6 +44,9 @@ export default function PayrollHub({ user }) {
   const [esicNo, setEsicNo] = useState('');
   const [personalEmail, setPersonalEmail] = useState('');
   const [birthdayDate, setBirthdayDate] = useState('');
+  const [grossSalary, setGrossSalary] = useState('');
+  const [genPayPeriod, setGenPayPeriod] = useState('July 2026');
+  const [generatingPayslip, setGeneratingPayslip] = useState(false);
   const [savingMeta, setSavingMeta] = useState(false);
   const [metaSaveMsg, setMetaSaveMsg] = useState('');
 
@@ -117,11 +120,12 @@ export default function PayrollHub({ user }) {
     const emp = allEmployees.find(e => (e._id || e.id || e.employee_code) === empId || String(e._id) === empId);
     setSelectedEmployee(emp || null);
     
-    // Auto-populate UAN, ESIC, Personal Email, and Birthday
+    // Auto-populate UAN, ESIC, Personal Email, Birthday, and Gross Salary
     setUanNo(emp?.uan_no || emp?.uan || '');
     setEsicNo(emp?.esic_no || emp?.esic || '');
     setPersonalEmail(emp?.personal_email || emp?.email || '');
     setBirthdayDate(emp?.birthday || emp?.dob || '');
+    setGrossSalary(emp?.gross_salary || emp?.gross || '');
     setMetaSaveMsg('');
 
     // Clear previous result when employee changes
@@ -138,15 +142,43 @@ export default function PayrollHub({ user }) {
         uan_no: uanNo,
         esic_no: esicNo,
         personal_email: personalEmail,
-        birthday: birthdayDate
+        birthday: birthdayDate,
+        gross_salary: grossSalary
       });
-      setMetaSaveMsg('UAN, ESIC & Personal Email saved permanently to employee profile!');
+      setMetaSaveMsg('UAN, ESIC, Gross Salary & Personal Email saved permanently to employee profile!');
       fetchEmployees();
     } catch (err) {
       console.error(err);
       setMetaSaveMsg(`Failed to save: ${err.message}`);
     } finally {
       setSavingMeta(false);
+    }
+  };
+
+  const handleGeneratePayslipFromGross = async () => {
+    if (!selectedEmpId) {
+      alert('Please select an employee first.');
+      return;
+    }
+    const amt = parseFloat(grossSalary);
+    if (isNaN(amt) || amt <= 0) {
+      alert('Please enter or save a valid Gross Salary for this employee first.');
+      return;
+    }
+    setGeneratingPayslip(true);
+    try {
+      const res = await api.payroll.generate({
+        employee_id: selectedEmpId,
+        pay_period: genPayPeriod,
+        gross_salary: amt,
+        pt_type: ptType
+      });
+      alert(res.message || 'Payslip generated successfully!');
+      fetchPayrolls();
+    } catch (err) {
+      alert(`Generation failed: ${err.message}`);
+    } finally {
+      setGeneratingPayslip(false);
     }
   };
 
@@ -657,6 +689,16 @@ Note: The attached PDF will be encrypted using Option 2 password standard (First
               {selectedEmployee && (
                 <div style={{ background: 'rgba(59, 130, 246, 0.05)', border: '1px solid rgba(59, 130, 246, 0.2)', padding: '14px', borderRadius: '10px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
                   <div>
+                    <label style={{ fontSize: '11px', fontWeight: 'bold', color: '#10b981', marginBottom: '4px', display: 'block' }}>Gross Salary ₹ (Permanent / Default CTC Base)</label>
+                    <input
+                      type="number"
+                      placeholder="e.g. 32000"
+                      value={grossSalary}
+                      onChange={(e) => setGrossSalary(e.target.value)}
+                      style={inputStyle}
+                    />
+                  </div>
+                  <div>
                     <label style={{ fontSize: '11px', fontWeight: 'bold', color: '#3b82f6', marginBottom: '4px', display: 'block' }}>UAN No. (Permanent)</label>
                     <input
                       type="text"
@@ -725,6 +767,40 @@ Note: The attached PDF will be encrypted using Option 2 password standard (First
                     <Save size={16} />
                     {savingMeta ? 'Saving Metadata...' : 'Save Profile Metadata Permanently'}
                   </button>
+
+                  {/* Generate Monthly Payslip Action */}
+                  <div style={{ marginTop: '12px', paddingTop: '12px', borderTop: '1px dashed rgba(255,255,255,0.12)' }}>
+                    <label style={{ fontSize: '11px', fontWeight: 'bold', color: '#8b5cf6', marginBottom: '6px', display: 'block' }}>
+                      ⚡ Generate Payslip for Month (Using Saved Gross & CTC Formula)
+                    </label>
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                      <input
+                        type="text"
+                        placeholder="Pay Period (e.g. July 2026)"
+                        value={genPayPeriod}
+                        onChange={(e) => setGenPayPeriod(e.target.value)}
+                        style={{ ...inputStyle, flex: 1 }}
+                      />
+                      <button
+                        type="button"
+                        onClick={handleGeneratePayslipFromGross}
+                        disabled={generatingPayslip}
+                        style={{
+                          padding: '8px 14px',
+                          borderRadius: '8px',
+                          border: 'none',
+                          background: 'linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%)',
+                          color: '#fff',
+                          fontWeight: 'bold',
+                          fontSize: '12px',
+                          cursor: 'pointer',
+                          whiteSpace: 'nowrap'
+                        }}
+                      >
+                        {generatingPayslip ? 'Generating...' : 'Generate Payslip'}
+                      </button>
+                    </div>
+                  </div>
                 </div>
               )}
             </div>
