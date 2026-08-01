@@ -249,6 +249,13 @@ Note: The attached PDF will be encrypted using Option 2 password standard (First
       } else {
         pt = 200;
       }
+    } else if (ptType === 'yearly2500_mar') {
+      pt_yearly = 2500;
+      if (calcMonth === 'March') {
+        pt = 300;
+      } else {
+        pt = 200;
+      }
     }
     const totalDeductions = employeePF + employeeESIC + pt;
     const netTakeHome = grossVal - totalDeductions;
@@ -842,6 +849,7 @@ Note: The attached PDF will be encrypted using Option 2 password standard (First
                 <select value={ptType} onChange={(e) => setPtType(e.target.value)} style={selectStyle}>
                   <option value="standard" style={{ background: 'var(--bg-card)', color: 'var(--text-primary)' }}>₹200/month (₹2,400/yr)</option>
                   <option value="yearly2500_feb" style={{ background: 'var(--bg-card)', color: 'var(--text-primary)' }}>₹200/month, Feb ₹300 (₹2,500/yr)</option>
+                  <option value="yearly2500_mar" style={{ background: 'var(--bg-card)', color: 'var(--text-primary)' }}>₹200/month, March ₹300 (₹2,500/yr)</option>
                 </select>
               </div>
             </div>
