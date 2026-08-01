@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { api } from '../utils/api';
 import ConfirmModal from './ConfirmModal';
-import { IndianRupee, Upload, Mail, Check, AlertTriangle, Download, FileText, Table2, ChevronDown, User, Building2, BadgeCheck, ShieldCheck, Lock, Save, Sparkles } from 'lucide-react';
+import { IndianRupee, Upload, Mail, Check, AlertTriangle, Download, FileText, Table2, ChevronDown, User, Building2, BadgeCheck, ShieldCheck, Lock, Save, Sparkles, Trash2 } from 'lucide-react';
 
 const API_BASE = 'https://hrms-backend-gamma.vercel.app/api';
 
@@ -231,6 +231,26 @@ Note: The attached PDF will be encrypted using Option 2 password standard (First
         } catch (err) {
           setEmailStatus(prev => ({ ...prev, [payrollId]: 'failed' }));
           alert(`Mailing failed: ${err.message}`);
+        }
+      },
+      onCancel: closeConfirm
+    });
+  };
+
+  const handleDeletePayroll = (payrollId, empName = 'Employee', payPeriod = '') => {
+    setConfirmConfig({
+      isOpen: true,
+      title: 'Delete Payroll Record',
+      message: `Are you sure you want to permanently delete the payroll record for ${empName} (${payPeriod})? This action cannot be undone.`,
+      confirmText: 'Delete Record',
+      type: 'danger',
+      onConfirm: async () => {
+        closeConfirm();
+        try {
+          await api.payroll.delete(payrollId);
+          fetchPayrolls();
+        } catch (err) {
+          alert(`Delete failed: ${err.message}`);
         }
       },
       onCancel: closeConfirm
@@ -848,16 +868,40 @@ Note: The attached PDF will be encrypted using Option 2 password standard (First
                           </span>
                         </td>
                         <td>
-                          <button
-                            type="button"
-                            onClick={() => handleEmailPayslip(pr.id, pr.employee?.name)}
-                            disabled={emailStatus[pr.id] === 'sending'}
-                            className="btn-primary"
-                            style={{ padding: '6px 12px', fontSize: '11px', margin: 0, display: 'flex', alignItems: 'center', gap: '4px' }}
-                          >
-                            <Mail size={12} />
-                            {emailStatus[pr.id] === 'sending' ? 'Sending...' : pr.status === 'SENT' ? 'Resend Encrypted Email' : 'Release Encrypted Email'}
-                          </button>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <button
+                              type="button"
+                              onClick={() => handleEmailPayslip(pr.id, pr.employee?.name)}
+                              disabled={emailStatus[pr.id] === 'sending'}
+                              className="btn-primary"
+                              style={{ padding: '6px 10px', fontSize: '11px', margin: 0, display: 'flex', alignItems: 'center', gap: '4px', whiteSpace: 'nowrap' }}
+                            >
+                              <Mail size={12} />
+                              {emailStatus[pr.id] === 'sending' ? 'Sending...' : pr.status === 'SENT' ? 'Resend Email' : 'Release Encrypted Email'}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleDeletePayroll(pr.id, pr.employee?.name, pr.pay_period)}
+                              style={{
+                                padding: '6px 10px',
+                                borderRadius: '6px',
+                                border: '1px solid rgba(239, 68, 68, 0.3)',
+                                background: 'rgba(239, 68, 68, 0.1)',
+                                color: '#ef4444',
+                                fontSize: '11px',
+                                fontWeight: '600',
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '4px',
+                                whiteSpace: 'nowrap',
+                                transition: 'all 0.2s'
+                              }}
+                              title="Delete this payroll record"
+                            >
+                              <Trash2 size={12} /> Delete
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     ))}

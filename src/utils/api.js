@@ -138,6 +138,7 @@ export const api = {
     }),
     list: () => request('/payroll'),
     email: (payrollId) => request(`/payroll/${payrollId}/email`, { method: 'POST' }),
+    delete: (payrollId) => request(`/payroll/${payrollId}`, { method: 'DELETE' }),
     updateMeta: (empId, data) => request(`/employees/${empId}/payroll-meta`, { method: 'POST', body: data }),
     generate: (data) => request('/payroll/generate', { method: 'POST', body: data }),
     getMyPayslips: () => request('/payroll/my-payslips'),
