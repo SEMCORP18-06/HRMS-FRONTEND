@@ -18,6 +18,7 @@ const STATUS_OPTIONS = [
 
 export default function Attendance({ activeTenant, user }) {
   const isAdmin = user?.role === 'Admin (HR)';
+  const [attendanceTab, setAttendanceTab] = useState(isAdmin ? 'admin' : 'apply');
   
   // State for Employee
   const [markedToday, setMarkedToday] = useState([]);
@@ -231,12 +232,11 @@ export default function Attendance({ activeTenant, user }) {
   useEffect(() => {
     fetchLockStatus();
     fetchEmployeeList();
+    fetchTodayAttendance();
+    fetchMyMonthData();
+    fetchLeaveSummary();
     if (isAdmin) {
       fetchAdminData();
-    } else {
-      fetchTodayAttendance();
-      fetchMyMonthData();
-      fetchLeaveSummary();
     }
   }, [currentYear, currentMonth, isAdmin]);
 
@@ -1316,7 +1316,56 @@ ${titleText}`}
 
   return (
     <div className="attendance-container">
-      {isAdmin ? renderAdminView() : renderEmployeeView()}
+      {isAdmin && (
+        <div style={{ display: 'flex', gap: '12px', marginBottom: '20px', background: 'rgba(255,255,255,0.02)', padding: '6px', borderRadius: '12px', border: '1px solid var(--border-glass)' }}>
+          <button
+            type="button"
+            onClick={() => setAttendanceTab('apply')}
+            style={{
+              flex: 1,
+              padding: '10px 16px',
+              borderRadius: '8px',
+              border: attendanceTab === 'apply' ? '2px solid #3b82f6' : '1px solid transparent',
+              background: attendanceTab === 'apply' ? 'rgba(59, 130, 246, 0.12)' : 'transparent',
+              color: attendanceTab === 'apply' ? '#3b82f6' : 'var(--text-primary)',
+              fontWeight: '700',
+              fontSize: '13px',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '8px'
+            }}
+          >
+            <Clock size={16} />
+            📝 Mark Attendance & Apply Leave (Date Range)
+          </button>
+          <button
+            type="button"
+            onClick={() => setAttendanceTab('admin')}
+            style={{
+              flex: 1,
+              padding: '10px 16px',
+              borderRadius: '8px',
+              border: attendanceTab === 'admin' ? '2px solid #10b981' : '1px solid transparent',
+              background: attendanceTab === 'admin' ? 'rgba(16, 185, 129, 0.12)' : 'transparent',
+              color: attendanceTab === 'admin' ? '#10b981' : 'var(--text-primary)',
+              fontWeight: '700',
+              fontSize: '13px',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '8px'
+            }}
+          >
+            <Users size={16} />
+            📊 HR Dashboard & Monthly Logs
+          </button>
+        </div>
+      )}
+
+      {(!isAdmin || attendanceTab === 'apply') ? renderEmployeeView() : renderAdminView()}
       <ConfirmModal {...confirmConfig} />
     </div>
   );
