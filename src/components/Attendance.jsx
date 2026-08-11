@@ -38,6 +38,21 @@ export default function Attendance({ activeTenant, user }) {
   const [markingSuccessMsg, setMarkingSuccessMsg] = useState('');
   const [recipientSearchQuery, setRecipientSearchQuery] = useState('');
 
+  // Date Range State
+  const [applyMode, setApplyMode] = useState('single'); // 'single' or 'range'
+  const [startDate, setStartDate] = useState(new Date().toISOString().split('T')[0]);
+  const [endDate, setEndDate] = useState(new Date().toISOString().split('T')[0]);
+
+  const calculateDaysCount = (start, end) => {
+    if (!start || !end) return 0;
+    const s = new Date(start);
+    const e = new Date(end);
+    if (isNaN(s.getTime()) || isNaN(e.getTime()) || s > e) return 0;
+    const diffTime = Math.abs(e - s);
+    return Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
+  };
+
+
   // Confirm Modal state
   const [confirmConfig, setConfirmConfig] = useState({
     isOpen: false,
@@ -336,6 +351,8 @@ export default function Attendance({ activeTenant, user }) {
         leave_category: statusSelection === 'Leave' ? leaveCategory : '',
         reason: absenceReason,
         handover_person: handoverPerson,
+        start_date: startDate,
+        end_date: applyMode === 'range' ? endDate : startDate,
         broadcast_all: broadcastMode === 'all',
         broadcast_recipients: broadcastMode === 'selective' ? selectedRecipients : []
       };
@@ -344,7 +361,13 @@ export default function Attendance({ activeTenant, user }) {
       setMarkedToday(res.selections || []);
       
       const displayStatus = statusSelection === 'Leave' ? leaveCategory : statusSelection;
-      let msg = `Successfully marked your status as "${displayStatus}" for today!`;
+      let msg = '';
+      if (res.total_days > 1) {
+        msg = `Successfully applied "${displayStatus}" from ${res.start_date} to ${res.end_date} (${res.total_days} days)!`;
+      } else {
+        msg = `Successfully marked your status as "${displayStatus}" for ${res.start_date}!`;
+      }
+
       if (res.broadcast_sent) {
         msg += ` Broadcast email sent to ${res.recipients_count} recipient(s) on a single thread.`;
       }
@@ -374,6 +397,17 @@ export default function Attendance({ activeTenant, user }) {
       return;
     }
 
+    if (applyMode === 'range') {
+      if (!startDate || !endDate) {
+        setError('Please select both From Date and To Date for your leave date range.');
+        return;
+      }
+      if (startDate > endDate) {
+        setError('From Date cannot be after To Date. Please correct your date range selection.');
+        return;
+      }
+    }
+
     if (broadcastMode === 'selective' && selectedRecipients.length === 0) {
       setError('Please select at least one employee recipient for your selective broadcast list, or switch to "Select All Employees".');
       return;
@@ -381,11 +415,16 @@ export default function Attendance({ activeTenant, user }) {
 
     const displayStatus = statusSelection === 'Leave' ? leaveCategory : statusSelection;
     const recipientCount = broadcastMode === 'all' ? employeeList.length : selectedRecipients.length;
+    const daysCount = applyMode === 'range' ? calculateDaysCount(startDate, endDate) : 1;
+
+    const dateMsg = applyMode === 'range' 
+      ? `from ${startDate} to ${endDate} (${daysCount} days)` 
+      : `for ${startDate}`;
 
     setConfirmConfig({
       isOpen: true,
       title: 'Confirm Attendance Marking & Email Broadcast',
-      message: `Mark your status for today as "${displayStatus}" and broadcast announcement email to ${recipientCount} recipient(s)?
+      message: `Mark your status ${dateMsg} as "${displayStatus}" and broadcast announcement email to ${recipientCount} recipient(s)?
 
 Note: All recipients will be included on a single email thread.`,
       confirmText: `Confirm & Send Broadcast`,
@@ -458,10 +497,149 @@ Note: All recipients will be included on a single email thread.`,
             </div>
           )}
 
-          {/* Step 1: Select Attendance / Leave Status */}
+          {/* Step 1: Select Duration Mode (Single Day vs Date Range) */}
           <div style={{ marginBottom: '22px' }}>
             <label style={{ display: 'block', fontSize: '13px', fontWeight: '700', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '10px' }}>
-              1. Mark Your Today's Status
+              1. Select Duration / Date Range
+            </label>
+            
+            <div style={{ display: 'flex', gap: '10px', marginBottom: '12px' }}>
+              <button
+                type="button"
+                onClick={() => setApplyMode('single')}
+                disabled={isLocked || submittingMarking}
+                style={{
+                  flex: 1,
+                  padding: '10px 14px',
+                  borderRadius: '10px',
+                  border: applyMode === 'single' ? '2px solid #3b82f6' : '1px solid var(--border-glass)',
+                  background: applyMode === 'single' ? 'rgba(59, 130, 246, 0.1)' : 'rgba(255,255,255,0.01)',
+                  color: applyMode === 'single' ? '#3b82f6' : 'var(--text-primary)',
+                  fontWeight: '600',
+                  fontSize: '13px',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '6px'
+                }}
+              >
+                <Calendar size={16} />
+                Single Day
+              </button>
+              
+              <button
+                type="button"
+                onClick={() => setApplyMode('range')}
+                disabled={isLocked || submittingMarking}
+                style={{
+                  flex: 1,
+                  padding: '10px 14px',
+                  borderRadius: '10px',
+                  border: applyMode === 'range' ? '2px solid #10b981' : '1px solid var(--border-glass)',
+                  background: applyMode === 'range' ? 'rgba(16, 185, 129, 0.1)' : 'rgba(255,255,255,0.01)',
+                  color: applyMode === 'range' ? '#10b981' : 'var(--text-primary)',
+                  fontWeight: '600',
+                  fontSize: '13px',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '6px'
+                }}
+              >
+                <Calendar size={16} />
+                Date Range (Multi-Day)
+              </button>
+            </div>
+
+            {applyMode === 'single' ? (
+              <div>
+                <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: '#94a3b8', marginBottom: '6px' }}>
+                  Select Date:
+                </label>
+                <input
+                  type="date"
+                  value={startDate}
+                  onChange={(e) => {
+                    setStartDate(e.target.value);
+                    setEndDate(e.target.value);
+                  }}
+                  disabled={isLocked || submittingMarking}
+                  style={{
+                    width: '100%',
+                    padding: '10px 12px',
+                    borderRadius: '8px',
+                    border: '1px solid var(--border-glass)',
+                    background: 'var(--bg-card, #1e293b)',
+                    color: 'var(--text-primary)',
+                    fontSize: '14px',
+                    outline: 'none'
+                  }}
+                />
+              </div>
+            ) : (
+              <div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: '#94a3b8', marginBottom: '6px' }}>
+                      From Date:
+                    </label>
+                    <input
+                      type="date"
+                      value={startDate}
+                      onChange={(e) => setStartDate(e.target.value)}
+                      disabled={isLocked || submittingMarking}
+                      style={{
+                        width: '100%',
+                        padding: '10px 12px',
+                        borderRadius: '8px',
+                        border: '1px solid var(--border-glass)',
+                        background: 'var(--bg-card, #1e293b)',
+                        color: 'var(--text-primary)',
+                        fontSize: '14px',
+                        outline: 'none'
+                      }}
+                    />
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: '#94a3b8', marginBottom: '6px' }}>
+                      To Date:
+                    </label>
+                    <input
+                      type="date"
+                      value={endDate}
+                      onChange={(e) => setEndDate(e.target.value)}
+                      disabled={isLocked || submittingMarking}
+                      style={{
+                        width: '100%',
+                        padding: '10px 12px',
+                        borderRadius: '8px',
+                        border: '1px solid var(--border-glass)',
+                        background: 'var(--bg-card, #1e293b)',
+                        color: 'var(--text-primary)',
+                        fontSize: '14px',
+                        outline: 'none'
+                      }}
+                    />
+                  </div>
+                </div>
+
+                {/* Duration summary badge */}
+                <div style={{ marginTop: '10px', background: 'rgba(16, 185, 129, 0.08)', border: '1px solid rgba(16, 185, 129, 0.25)', padding: '10px 14px', borderRadius: '8px', fontSize: '13px', color: '#10b981', fontWeight: '600', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <span>📅 Total Duration:</span>
+                  <span style={{ background: '#10b981', color: '#ffffff', padding: '2px 10px', borderRadius: '12px', fontSize: '12px', fontWeight: '700' }}>
+                    {calculateDaysCount(startDate, endDate)} Day(s) ({startDate} to {endDate})
+                  </span>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Step 2: Select Attendance / Leave Status */}
+          <div style={{ marginBottom: '22px' }}>
+            <label style={{ display: 'block', fontSize: '13px', fontWeight: '700', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '10px' }}>
+              2. Mark Your Status
             </label>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px' }}>
               {[
