@@ -153,11 +153,14 @@ export default function Attendance({ activeTenant, user }) {
   const handleSaveLeaveAllocation = async () => {
     setAllocSaving(true);
     try {
+      const monthStr = String(currentMonth + 1).padStart(2, '0');
+      const monthName = new Date(currentYear, currentMonth).toLocaleString('default', { month: 'long', year: 'numeric' });
       const targetEmp = employees.find(e => e.id === allocTarget);
       const data = {
         year: currentYear,
-        month: String(currentMonth + 1).padStart(2, '0'),
+        month: monthStr,
         target: allocTarget,
+        employee_id: allocTarget,
         wo: Number(allocWO),
         sl: Number(allocSL),
         cl: Number(allocCL),
@@ -165,9 +168,27 @@ export default function Attendance({ activeTenant, user }) {
       };
       await api.attendance.saveLeaveAllocation(data);
       setShowAllocPanel(false);
+      setConfirmConfig({
+        isOpen: true,
+        title: 'Allocations Updated',
+        message: `Leave allocations for ${allocTarget === 'all' ? 'all employees' : (targetEmp ? targetEmp.name : 'selected employee')} have been successfully saved for ${monthName}.`,
+        confirmText: 'Done',
+        cancelText: null,
+        type: 'info',
+        onConfirm: closeConfirm
+      });
       if (isAdmin) fetchAdminData();
     } catch (err) {
       console.error('Failed to save leave allocation:', err);
+      setConfirmConfig({
+        isOpen: true,
+        title: 'Save Failed',
+        message: err.message || 'Failed to save leave allocation. Please check your connection and try again.',
+        confirmText: 'Dismiss',
+        cancelText: null,
+        type: 'danger',
+        onConfirm: closeConfirm
+      });
     } finally {
       setAllocSaving(false);
     }
@@ -1231,10 +1252,22 @@ ${titleText}`}
             <button
               onClick={handleSaveLeaveAllocation}
               disabled={allocSaving}
-              style={{ padding: '8px 16px', borderRadius: '8px', border: 'none', background: '#10b981', color: 'var(--text-primary)',
-                    backgroundColor: 'var(--bg-card)', fontWeight: 'bold', fontSize: '13px', cursor: 'pointer' }}
+              style={{
+                padding: '10px 20px',
+                borderRadius: '8px',
+                border: 'none',
+                background: '#10b981',
+                color: '#ffffff',
+                fontWeight: 'bold',
+                fontSize: '13px',
+                cursor: allocSaving ? 'not-allowed' : 'pointer',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '8px',
+                boxShadow: '0 4px 12px rgba(16, 185, 129, 0.3)'
+              }}
             >
-              {allocSaving ? 'Saving...' : 'Save Allocations'}
+              {allocSaving ? 'Saving...' : '💾 Save Allocations'}
             </button>
           </div>
         )}
