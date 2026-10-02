@@ -152,6 +152,10 @@ export const api = {
     }),
     trigger: () => request('/daily-pulse/trigger', { method: 'POST' }),
     schedule: () => request('/daily-pulse/schedule'),
+    updateSchedule: (pulseId, data) => request(`/daily-pulse/schedule/${pulseId}`, {
+      method: 'PUT',
+      body: data
+    }),
     today: () => request('/daily-pulse/today')
   },
   surpriseOps: {

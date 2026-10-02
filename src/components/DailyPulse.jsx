@@ -17,6 +17,8 @@ export default function DailyPulse() {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedPulse, setSelectedPulse] = useState(null);
   const [recipientQuery, setRecipientQuery] = useState('');
+  const [isEditingTime, setIsEditingTime] = useState(false);
+  const [newTime, setNewTime] = useState('10:30');
 
   // Quote Library State
   const [quoteLibrary, setQuoteLibrary] = useState([]);
@@ -114,6 +116,20 @@ export default function DailyPulse() {
       },
       onCancel: closeConfirm
     });
+  };
+
+  const handleSaveTime = async () => {
+    if (!selectedPulse || !newTime) return;
+    try {
+      await api.dailyPulse.updateSchedule(selectedPulse.id, { time: newTime });
+      setSelectedPulse(prev => ({ ...prev, time: newTime }));
+      setSchedule(prev => prev.map(p => p.id === selectedPulse.id ? { ...p, time: newTime } : p));
+      setIsEditingTime(false);
+      setStatus(`Broadcast time updated to ${newTime} IST!`);
+      setTimeout(() => setStatus(''), 4000);
+    } catch (err) {
+      setStatus(`Failed to update broadcast time: ${err.message}`);
+    }
   };
 
   // Calendar calculations
@@ -328,9 +344,54 @@ export default function DailyPulse() {
                     <span>Scheduled Date:</span>
                     <strong style={{ color: 'var(--text-primary)' }}>{selectedPulse.date}</strong>
                   </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <span>Broadcast Time:</span>
-                    <strong style={{ color: 'var(--text-primary)' }}>{selectedPulse.time} AM local</strong>
+                    {selectedPulse.status === 'Scheduled' ? (
+                      isEditingTime ? (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <input 
+                            type="time" 
+                            value={newTime} 
+                            onChange={(e) => setNewTime(e.target.value)}
+                            style={{ 
+                              background: 'rgba(0,0,0,0.3)', 
+                              border: '1px solid var(--border-glass)', 
+                              color: 'var(--text-primary)',
+                              borderRadius: '6px',
+                              padding: '4px 8px',
+                              fontSize: '15px'
+                            }}
+                          />
+                          <button 
+                            className="btn-primary" 
+                            onClick={handleSaveTime}
+                            style={{ padding: '4px 10px', fontSize: '13px' }}
+                          >
+                            Save
+                          </button>
+                          <button 
+                            className="back-btn" 
+                            onClick={() => setIsEditingTime(false)}
+                            style={{ padding: '4px 8px', fontSize: '13px' }}
+                          >
+                            ✕
+                          </button>
+                        </div>
+                      ) : (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <strong style={{ color: 'var(--text-primary)' }}>{selectedPulse.time} IST</strong>
+                          <button 
+                            className="back-btn" 
+                            onClick={() => { setNewTime(selectedPulse.time || '10:30'); setIsEditingTime(true); }}
+                            style={{ padding: '2px 8px', fontSize: '12px', borderRadius: '4px' }}
+                          >
+                            Edit
+                          </button>
+                        </div>
+                      )
+                    ) : (
+                      <strong style={{ color: 'var(--text-primary)' }}>{selectedPulse.time} IST</strong>
+                    )}
                   </div>
                   {selectedPulse.delivered_at && (
                     <div style={{ display: 'flex', justifyContent: 'space-between' }}>
